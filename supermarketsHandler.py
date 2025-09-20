@@ -136,7 +136,7 @@ class mainRequestsHandler():
         self.store_options = {}
         self.handlers = {}
 
-        for store_name in [CARREFOUR, KING_STORE]:
+        for store_name in [SHUFERSAL]:
             if "extra_pages" in STORE_CONFIG[store_name]:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
                     _site_url = STORE_CONFIG[store_name]["base"], 
