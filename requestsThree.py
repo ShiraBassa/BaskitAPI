@@ -1,26 +1,31 @@
 import requests
 from data_sets import getAbbr
 from bs4 import BeautifulSoup
-from urllib3.exceptions import InsecureRequestWarning
-import urllib3
 import certifi
-import json
 import xml.etree.ElementTree as ET
+from enum import Enum
 
+class FileType(Enum):
+        PRICE = "price"
+        PRICE_FULL = "PriceFull"
+        PROMO_FULL = "PromoFull"
+        STORES = "Stores"
+
+        DEFAULT = PRICE_FULL
 
 class RequestsClassThree():
-    fileType_map = [
-        "price",
-        "PriceFull",
-        "PromoFull",
-        "Stores"
-    ]
-
-    def __init__(self, _site_url, _main_page, _extra_pages):
+    def __init__(self, _site_url, _main_page, _extra_pages, _extra_vars):
         self.all_urls = {}
         self.site_url = _site_url
         self.main_page = _main_page
         self.extra_pages = _extra_pages
+        
+        if isinstance(_extra_vars, dict):
+            self.username, self.password = _extra_vars.values()
+        else:
+            self.username = _extra_vars
+            self.password = ""
+
         self.all_store_names = {}
         self.store_options = []
         self.final_choice = {}
@@ -44,8 +49,8 @@ class RequestsClassThree():
         csrf_token = csrf_tag["content"]
         
         login_data = {
-            "username": "RamiLevi",
-            "password": "",
+            "username": self.username,
+            "password": self.password,
             "r": "",
             "csrftoken": csrf_token
         }
@@ -61,7 +66,7 @@ class RequestsClassThree():
             raise Exception("Login failed, check credentials or CSRF token")
 
     def set_all_store_names(self):
-        store_names_file = self.search_and_fetch("Stores")[0]
+        store_names_file = self.search_and_fetch(FileType.STORES.value)[0]
         store_names_file = self.getUrl(self.extra_pages["download"]) + store_names_file["fname"]
 
         resp = self.session.get(store_names_file, verify=certifi.where())
@@ -100,7 +105,7 @@ class RequestsClassThree():
             
         return list(self.store_options.keys())
 
-    def set_store_option_single(self, store_name, fileType="PriceFull", date=""):
+    def set_store_option_single(self, store_name, fileType=FileType.DEFAULT.value, date=""):
         storeId = self.all_store_names[store_name]
         files = self.search_and_fetch(str(storeId))
         
@@ -120,7 +125,7 @@ class RequestsClassThree():
         
         print(row_dict)
 
-    def set_store_options(self, options, fileType="PriceFull", date=""):
+    def set_store_options(self, options, fileType=FileType.DEFAULT.value, date=""):
         for store_name in options:
             self.set_store_option_single(store_name, fileType, date)
 
@@ -200,11 +205,3 @@ class RequestsClassThree():
         files = files_resp.json()
 
         return files["aaData"]
-
-
-handler = RequestsClassThree("https://url.publishedprices.co.il", "/file", {
-    "login_base": "/login",
-    "login_post": "/login/user",
-    "dir": "/file/json/dir",
-    "download": "/file/d/"
-})
