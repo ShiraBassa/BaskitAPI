@@ -14,9 +14,9 @@ class FileType(Enum):
         DEFAULT = PRICE_FULL
 
 class RequestsClassThree():
-    def __init__(self, _site_url, _main_page, _extra_pages, _extra_vars):
+    def __init__(self, _main_page, _extra_pages, _extra_vars):
         self.all_urls = {}
-        self.site_url = _site_url
+        self.site_url = "https://url.publishedprices.co.il"
         self.main_page = _main_page
         self.extra_pages = _extra_pages
         
