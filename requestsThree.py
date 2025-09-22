@@ -13,6 +13,13 @@ class FileType(Enum):
 
         DEFAULT = PRICE_FULL
 
+class BranchesMap(Enum):
+    STORE_ID = 0
+    STORE_NAME = 3
+    ADDRESS = 4
+    CITY = 5
+    ZIP_CODE = 6
+
 class RequestsClassThree():
     def __init__(self, _main_page, _extra_pages, _extra_vars):
         self.all_urls = {}
@@ -79,7 +86,7 @@ class RequestsClassThree():
                 root = ET.fromstring(resp.content)
 
                 for store in root.findall(".//Store"):
-                    self.all_store_names[store.find("StoreName").text] = int(store.find("StoreID").text)
+                    self.all_store_names[store[BranchesMap.STORE_NAME.value].text] = int(store[BranchesMap.STORE_ID.value].text)
             
             except ET.ParseError as e:
                 print("XML Parse Error:", e)

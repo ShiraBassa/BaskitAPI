@@ -199,7 +199,7 @@ STORE_CONFIG = {
             "login_base": "/login",
             "login_post": "/login/user",
             "dir": "/file/json/dir",
-            "download": "/file/d/Yuda/"
+            "download": "/file/d/"
         },
         "extra_vars": {
             "username": "SalachD",
@@ -231,35 +231,20 @@ STORE_CONFIG = {
         "extra_vars": "politzer"
     },
 
-    # YELLOW: {
-    #     "class": REQUESTS_CLASSES[2],
-    #     "main_page": "/file",
-    #     "extra_pages": {
-    #         "login_base": "/login",
-    #         "login_post": "/login/user",
-    #         "dir": "/file/json/dir",
-    #         "download": "/file/d/"
-    #     },
-    #     "extra_vars": {
-    #         "username": "Paz_bo",
-    #         "password": "paz468"
-    #     }
-    # },
-
-    # SUPER_YUDA: {
-    #     "class": REQUESTS_CLASSES[2],
-    #     "main_page": "/file/d/Yuda",
-    #     "extra_pages": {
-    #         "login_base": "/login",
-    #         "login_post": "/login/user",
-    #         "dir": "/file/json/dir",
-    #         "download": "/file/d/Yuda/"
-    #     },
-    #     "extra_vars": {
-    #         "username": "yuda_ho",
-    #         "password": "Yud@147"
-    #     }
-    # },
+    YELLOW: {
+        "class": REQUESTS_CLASSES[2],
+        "main_page": "/file",
+        "extra_pages": {
+            "login_base": "/login",
+            "login_post": "/login/user",
+            "dir": "/file/json/dir",
+            "download": "/file/d/"
+        },
+        "extra_vars": {
+            "username": "Paz_bo",
+            "password": "paz468"
+        }
+    },
 
     FRESHMARKET: {
         "class": REQUESTS_CLASSES[2],
@@ -297,17 +282,17 @@ STORE_CONFIG = {
         "extra_vars": "RamiLevi"
     },
 
-    # SUPER_COFIX: {
-    #     "class": REQUESTS_CLASSES[2],
-    #     "main_page": "/file",
-    #     "extra_pages": {
-    #         "login_base": "/login",
-    #         "login_post": "/login/user",
-    #         "dir": "/file/json/dir",
-    #         "download": "/file/d/"
-    #     },
-    #     "extra_vars": "SuperCofixApp"
-    # }
+    SUPER_COFIX: {
+        "class": REQUESTS_CLASSES[2],
+        "main_page": "/file",
+        "extra_pages": {
+            "login_base": "/login",
+            "login_post": "/login/user",
+            "dir": "/file/json/dir",
+            "download": "/file/d/"
+        },
+        "extra_vars": "SuperCofixApp"
+    }
 }
 
 
@@ -316,16 +301,14 @@ class mainRequestsHandler():
         self.store_options = {}
         self.handlers = {}
 
-        for store_name in [SALAH_DABAH]:
+        for store_name in STORE_CONFIG:
+            print(store_name)
             if "extra_pages" in STORE_CONFIG[store_name] and "extra_vars" in STORE_CONFIG[store_name]:
-                print(store_name)
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
                     _main_page = STORE_CONFIG[store_name]["main_page"],
                     _extra_pages = STORE_CONFIG[store_name]["extra_pages"],
                     _extra_vars = STORE_CONFIG[store_name]["extra_vars"]
                 )
-            elif True:
-                pass
             elif "extra_pages" in STORE_CONFIG[store_name]:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
                     _site_url = STORE_CONFIG[store_name]["base"], 
