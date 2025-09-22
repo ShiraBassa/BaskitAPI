@@ -2,6 +2,7 @@ from requestsOne import RequestsClassOne
 from requestsTwo import RequestsClassTwo
 from requestsThree import RequestsClassThree
 from enum import Enum
+import data_sets
 
 
 SHUFERSAL = "shufersal"
@@ -298,11 +299,26 @@ STORE_CONFIG = {
 
 class mainRequestsHandler():
     def __init__(self):
-        self.store_options = {}
+        self.cities = []
+        self.handlers = {}
+        self.choices = {}
+
+    def get_all_cities(self):
+        return data_sets.getCities()
+    
+    def set_cities(self, cities):
+        self.cities = cities
+
+    def get_cities(self):
+        return self.cities
+
+    def get_all_stores(self):
+        return list(STORE_CONFIG.keys())
+    
+    def set_stores(self, stores):
         self.handlers = {}
 
-        for store_name in STORE_CONFIG:
-            print(store_name)
+        for store_name in stores:
             if "extra_pages" in STORE_CONFIG[store_name] and "extra_vars" in STORE_CONFIG[store_name]:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
                     _main_page = STORE_CONFIG[store_name]["main_page"],
@@ -322,13 +338,38 @@ class mainRequestsHandler():
                     _extra_vars = STORE_CONFIG[store_name]["extra_vars"],
                 )
 
-    def get_all_store_names(self, cities):
-        for store_name in self.handlers:
-            self.store_options[store_name] = self.handlers[store_name].get_store_names(cities)
+    def get_stores(self):
+        return list(self.handlers.keys())
 
-        return self.store_options
+    def get_all_branches(self):
+        if self.handlers == {}:
+            raise RuntimeError("You need to set the stores first")
+        
+        stores_branches = {}
+
+        for store_name in self.handlers:
+            stores_branches[store_name] = self.handlers[store_name].get_store_names(self.cities)
+
+        return stores_branches
+
+    def set_branches(self, choices):
+        self.choices = choices
+        
+        for store_name in self.choices:
+            self.handlers.set_branch_choices(self.choices[store_name])
     
+    def get_branches(self):
+        return self.choices
 
 if __name__ == "__main__":
     handler = mainRequestsHandler()
-    print(handler.get_all_store_names(["באר שבע"]))
+    cities = handler.get_all_cities()
+    print(cities)
+    handler.set_cities([cities[0]])
+
+    stores = handler.get_all_stores()
+    print(stores)
+    handler.set_stores([stores[1], stores[4]])
+
+    stores_branches = handler.get_all_branches()
+    print(stores_branches)

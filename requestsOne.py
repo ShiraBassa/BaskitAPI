@@ -107,7 +107,7 @@ class RequestsClassOne():
 
         self.final_choice[store_name] = row_dict
 
-    def set_store_options(self, options, catID=2, sort="Time", sortdir="ASC"):
+    def set_branch_choices(self, options, catID=2, sort="Time", sortdir="ASC"):
         self.final_choice = {}
 
         for store_name in options:
