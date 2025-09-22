@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 import re
 from data_sets import getAbbr
+import update_db
 
 
 class RequestsClassOne():
@@ -116,4 +117,5 @@ class RequestsClassOne():
         self.branches[branch_name] = row_dict
     
     def update_url(self, branch_name):
-        self.set_branch_single(branch_name, self.all_branches["type"])
+        self.set_branch_single(branch_name, self.branches[branch_name]["type"])
+        return self.branches[branch_name]["url"]

@@ -3,6 +3,7 @@ from requestsTwo import RequestsClassTwo
 from requestsThree import RequestsClassThree
 from enum import Enum
 import data_sets
+import update_db
 
 
 SHUFERSAL = "shufersal"
@@ -356,10 +357,17 @@ class mainRequestsHandler():
         self.choices = choices
         
         for store_name in self.choices:
-            self.handlers.set_branches(self.choices[store_name])
+            self.handlers[store_name].set_branches(self.choices[store_name])
+
+            for branch_name in self.choices[store_name]:
+                if not update_db.if_branch_exists(store_name, branch_name):
+                    update_db.add_branch(store_name, branch_name, self.handlers[store_name].branches[branch_name]["url"], self.handlers[store_name])
     
     def get_branches(self):
         return self.choices
+    
+def update_database(handler):
+    update_db.update_all_stores(handler.handlers)
 
 if __name__ == "__main__":
     handler = mainRequestsHandler()
@@ -369,7 +377,11 @@ if __name__ == "__main__":
 
     stores = handler.get_all_stores()
     print(stores)
-    handler.set_stores([stores[0], stores[1], stores[-1]])
+    handler.set_stores([stores[0]])
 
     stores_branches = handler.get_all_branches()
     print(stores_branches)
+    stores_branches[stores[0]] = [stores_branches[stores[0]][0]]
+    print(stores_branches)
+    handler.set_branches(stores_branches)
+    update_database(handler)
