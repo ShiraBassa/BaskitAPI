@@ -19,32 +19,30 @@ class RequestsClassOne():
         self.all_urls = {}
         self.site_url = _site_url
         self.main_page = _main_page
-        self.stores_dropdown_id, self.default_pop_item = _extra_vars.values()
-        self.all_store_names = {}
-        self.store_options = []
-        self.final_choice = {}
+        self.branches_dropdown_id, self.default_pop_item = _extra_vars.values()
+        self.branches = {}
 
         self.session = requests.Session()
-        self.set_all_store_names()
+        self.all_branches = self.get_all_branches()
 
-    def getUrl(self, catID=2, storeId=0, sort="Time", sortdir="ASC"):
+    def get_url(self, catID=2, storeId=0, sort="Time", sortdir="ASC"):
         return  self.site_url + self.main_page + \
                 "catID=" + str(catID) + \
                 "&storeId=" + str(storeId) + \
                 "&sort=" + sort + \
                 "&sortdir=" + sortdir
     
-    def set_all_store_names(self):
+    def get_all_branches(self):
         response = self.session.get(self.site_url)
         
         if response.status_code != 200:
             raise Exception("Failed to fetch page")
         
         soup = BeautifulSoup(response.text, "html.parser")
-        select = soup.find("select", {"id": self.stores_dropdown_id})  # adjust ID if needed
+        select = soup.find("select", {"id": self.branches_dropdown_id})  # adjust ID if needed
 
         if not select:
-            select = soup.find("select", {"name": self.stores_dropdown_id})  # fallback
+            select = soup.find("select", {"name": self.branches_dropdown_id})  # fallback
         
         if not select:
             raise Exception("Store dropdown not found on the page")
@@ -52,36 +50,46 @@ class RequestsClassOne():
         options = select.find_all("option")
         options = {option.text.strip(): option["value"] for option in options}
         options.pop(self.default_pop_item)
-        self.all_store_names = {}
+        all_branches = {}
 
         for full_name, code in options.items():
             # Remove leading "<number> - " from the key
             clean_name = full_name.split(' - ', 1)[1] if ' - ' in full_name else full_name
-            self.all_store_names[clean_name.strip()] = int(code)
+            all_branches[clean_name.strip()] = int(code)
 
-    def get_store_names(self, cities):
-        self.store_options = []
+        return all_branches
 
-        for store_name in self.all_store_names:
+    def get_branches(self, cities):
+        branches = []
+
+        for branch_name in self.all_branches:
             has_city = False
 
             for city in cities:
                 if not has_city:
-                    if city in store_name:
+                    if city in branch_name:
                         has_city = True
                     else:
                         abbr = getAbbr(city)
 
-                        if abbr and abbr in store_name:
+                        if abbr and abbr in branch_name:
                             has_city = True
 
             if has_city:
-                self.store_options.append(store_name)
+                branches.append(branch_name)
             
-        return self.store_options
+        return branches
 
-    def set_store_option_single(self, store_name, catID=2, storeId=0, sort="Time", sortdir="ASC"):
-        response = requests.get(self.getUrl(catID, storeId, sort, sortdir))
+    def set_branches(self, branches, catID=2, sort="Time", sortdir="ASC"):
+        self.branches = {}
+
+        for branch in branches:
+            self.set_branch_single(branch, catID, self.all_branches[branch], sort, sortdir)
+
+        return self.branches
+    
+    def set_branch_single(self, branch_name, catID=2, storeId=0, sort="Time", sortdir="ASC"):
+        response = requests.get(self.get_url(catID, storeId, sort, sortdir))
         
         if response.status_code != 200:
             return False
@@ -102,18 +110,10 @@ class RequestsClassOne():
             "date": tds[1].get_text(strip=True),
             "type": catID,
             "filename": tds[6].get_text(strip=True),
-            "code": self.all_store_names[store_name]
+            "code": self.all_branches[branch_name]
         }
 
-        self.final_choice[store_name] = row_dict
-
-    def set_branch_choices(self, options, catID=2, sort="Time", sortdir="ASC"):
-        self.final_choice = {}
-
-        for store_name in options:
-            self.set_store_option_single(store_name, catID, self.all_store_names[store_name], sort, sortdir)
-
-        return self.final_choice
+        self.branches[branch_name] = row_dict
     
-    def update_url(self, store_name):
-        self.set_store_option_single(store_name, self.store_options["type"])
+    def update_url(self, branch_name):
+        self.set_branch_single(branch_name, self.all_branches["type"])

@@ -16,52 +16,61 @@ class RequestsClassTwo():
         self.site_url = _site_url
         self.main_page = _main_page
         self.extra_pages = _extra_pages
-        self.all_store_names = {}
-        self.store_options = []
-        self.final_choice = {}
+        self.branches = {}
 
         self.session = requests.Session()
-        self.set_all_store_names()
+        self.all_branches = self.get_all_branches()
 
-    def getUrl(self, page_name):
+    def get_url(self, page_name):
         return self.site_url + page_name + ".aspx"
 
-    def set_all_store_names(self):
-        response = self.session.post(self.getUrl(self.extra_pages["stores"]), data={})
+    def get_all_branches(self):
+        response = self.session.post(self.get_url(self.extra_pages["stores"]), data={})
         
         if response.status_code != 200:
             return "error"
         
         stores = response.json()
+        all_branches = {}
 
         for store in stores:
             name = store["Nm"].strip()
             name_clean = " ".join(name.split()[1:]) if name[0].isdigit() else name
-            self.all_store_names[name_clean] = int(store["Kod"])
+            all_branches[name_clean] = int(store["Kod"])
 
-    def get_store_names(self, cities):
-        self.store_options = {}
+        return all_branches
+    
+    def get_branches(self, cities):
+        branches = []
 
-        for store_name in self.all_store_names:
+        for branch_name in self.all_branches:
             has_city = False
 
             for city in cities:
                 if not has_city:
-                    if city in store_name:
+                    if city in branch_name:
                         has_city = True
                     else:
                         abbr = getAbbr(city)
 
-                        if abbr and abbr in store_name:
+                        if abbr and abbr in branch_name:
                             has_city = True
 
             if has_city:
-                self.store_options[store_name] = {}
+                branches.append(branch_name)
             
-        return list(self.store_options.keys())
+        return branches
+    
+    def set_branches(self, branches, fileType=4, date=""):
+        self.branches = {}
 
-    def set_store_option_single(self, store_name, fileType=4, date=""):
-        storeId = self.all_store_names[store_name]
+        for branch in branches:
+            self.set_branch_single(branch, fileType, date)
+
+        return self.branches
+
+    def set_branch_single(self, branch_name, fileType=4, date=""):
+        storeId = self.all_branches[branch_name]
             
         payload = {
             "WStore": storeId,
@@ -74,7 +83,7 @@ class RequestsClassTwo():
             "User-Agent": "Mozilla/5.0"
         }
 
-        response = self.session.post(self.getUrl(self.main_page), data=payload, headers=headers)
+        response = self.session.post(self.get_url(self.main_page), data=payload, headers=headers)
         
         try:
             store_dict = response.json()[0]
@@ -82,19 +91,14 @@ class RequestsClassTwo():
                 "date": store_dict["DateFile"],
                 "type": fileType,
                 "filename": store_dict["FileNm"],
-                "code": self.all_store_names[store_name]
+                "code": self.all_branches[branch_name]
             }
-            row_dict["url"] = self.getUrl(self.main_page) + "/Download/" + row_dict["filename"]
+            row_dict["url"] = self.get_url(self.main_page) + "/Download/" + row_dict["filename"]
 
-            self.store_options[store_name] = row_dict
+            self.branches[branch_name] = row_dict
+
         except ValueError:
             return False
 
-    def set_store_options(self, options, fileType=4, date=""):
-        for store_name in options:
-            self.set_store_option_single(store_name, fileType, date)
-
-        return self.store_options
-    
-    def update_url(self, store_name):
-        self.set_store_option_single(store_name, self.store_options["type"])
+    def update_url(self, branch_name):
+        self.set_branch_single(branch_name, self.all_branches["type"])

@@ -348,7 +348,7 @@ class mainRequestsHandler():
         stores_branches = {}
 
         for store_name in self.handlers:
-            stores_branches[store_name] = self.handlers[store_name].get_store_names(self.cities)
+            stores_branches[store_name] = self.handlers[store_name].get_branches(self.cities)
 
         return stores_branches
 
@@ -356,7 +356,7 @@ class mainRequestsHandler():
         self.choices = choices
         
         for store_name in self.choices:
-            self.handlers.set_branch_choices(self.choices[store_name])
+            self.handlers.set_branches(self.choices[store_name])
     
     def get_branches(self):
         return self.choices
@@ -369,7 +369,7 @@ if __name__ == "__main__":
 
     stores = handler.get_all_stores()
     print(stores)
-    handler.set_stores([stores[1], stores[4]])
+    handler.set_stores([stores[0], stores[1], stores[-1]])
 
     stores_branches = handler.get_all_branches()
     print(stores_branches)

@@ -33,19 +33,17 @@ class RequestsClassThree():
             self.username = _extra_vars
             self.password = ""
 
-        self.all_store_names = {}
-        self.store_options = []
-        self.final_choice = {}
+        self.branches = {}
 
         self.session = requests.Session()
         self.login()
-        self.set_all_store_names()
+        self.all_branches = self.get_all_branches()
 
-    def getUrl(self, page_name):
+    def get_url(self, page_name):
         return self.site_url + page_name
 
     def login(self):
-        resp = self.session.get(self.getUrl(self.extra_pages["login_base"]), verify=certifi.where(), allow_redirects=True)
+        resp = self.session.get(self.get_url(self.extra_pages["login_base"]), verify=certifi.where(), allow_redirects=True)
         soup = BeautifulSoup(resp.text, "html.parser")
 
         csrf_tag = soup.find("meta", {"name": "csrftoken"})
@@ -67,17 +65,18 @@ class RequestsClassThree():
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        login_resp = self.session.post(self.getUrl(self.extra_pages["login_post"]), data=login_data, headers=headers, verify=certifi.where())
+        login_resp = self.session.post(self.get_url(self.extra_pages["login_post"]), data=login_data, headers=headers, verify=certifi.where())
         
         if "Sign In" in login_resp.text or "Not currently logged in" in login_resp.text:
             raise Exception("Login failed, check credentials or CSRF token")
 
-    def set_all_store_names(self):
+    def get_all_branches(self):
         store_names_file = self.search_and_fetch(FileType.STORES.value)[0]
-        store_names_file = self.getUrl(self.extra_pages["download"]) + store_names_file["fname"]
+        store_names_file = self.get_url(self.extra_pages["download"]) + store_names_file["fname"]
 
         resp = self.session.get(store_names_file, verify=certifi.where())
         content_type = resp.headers.get("Content-Type", "")
+        all_branches = {}
 
         if "xml" not in content_type.lower():
             print("Warning: Received content is not XML. Check URL or authentication.")
@@ -86,34 +85,44 @@ class RequestsClassThree():
                 root = ET.fromstring(resp.content)
 
                 for store in root.findall(".//Store"):
-                    self.all_store_names[store[BranchesMap.STORE_NAME.value].text] = int(store[BranchesMap.STORE_ID.value].text)
+                    all_branches[store[BranchesMap.STORE_NAME.value].text] = int(store[BranchesMap.STORE_ID.value].text)
             
             except ET.ParseError as e:
                 print("XML Parse Error:", e)
 
-    def get_store_names(self, cities):
-        self.store_options = {}
+        return all_branches
+    
+    def get_branches(self, cities):
+        branches = []
 
-        for store_name in self.all_store_names:
+        for branch_name in self.all_branches:
             has_city = False
 
             for city in cities:
                 if not has_city:
-                    if city in store_name:
+                    if city in branch_name:
                         has_city = True
                     else:
                         abbr = getAbbr(city)
 
-                        if abbr and abbr in store_name:
+                        if abbr and abbr in branch_name:
                             has_city = True
 
             if has_city:
-                self.store_options[store_name] = {}
+                branches.append(branch_name)
             
-        return list(self.store_options.keys())
+        return branches
+    
+    def set_branches(self, branches, fileType=FileType.DEFAULT.value, date=""):
+        self.branches = {}
 
-    def set_store_option_single(self, store_name, fileType=FileType.DEFAULT.value, date=""):
-        storeId = self.all_store_names[store_name]
+        for branch in branches:
+            self.set_branch_single(branch, fileType, date)
+
+        return self.branches
+
+    def set_branch_single(self, branch_name, fileType=FileType.DEFAULT.value, date=""):
+        storeId = self.all_branches[branch_name]
         files = self.search_and_fetch(str(storeId))
         
         for file in files:
@@ -121,7 +130,7 @@ class RequestsClassThree():
 
             if filename.startswith(fileType):
                 row_dict = {
-                    "url": self.getUrl(self.extra_pages["download"]) + filename,
+                    "url": self.get_url(self.extra_pages["download"]) + filename,
                     "date": file["time"],
                     "type": fileType,
                     "filename": filename,
@@ -131,19 +140,13 @@ class RequestsClassThree():
                 break
         
         print(row_dict)
-
-    def set_store_options(self, options, fileType=FileType.DEFAULT.value, date=""):
-        for store_name in options:
-            self.set_store_option_single(store_name, fileType, date)
-
-        return self.store_options
     
-    def update_url(self, store_name):
-        self.set_store_option_single(store_name, self.store_options["type"])
+    def update_url(self, branch_name):
+        self.set_branch_single(branch_name, self.all_branches["type"])
 
     def search_and_fetch(self, search):
         # Step 3: GET /file page first to get updated CSRF token for file actions
-        file_page_resp = self.session.get(self.getUrl(self.main_page), headers={"User-Agent": "Mozilla/5.0"}, verify=certifi.where())
+        file_page_resp = self.session.get(self.get_url(self.main_page), headers={"User-Agent": "Mozilla/5.0"}, verify=certifi.where())
         soup_file = BeautifulSoup(file_page_resp.text, "html.parser")
         csrf_tag_file = soup_file.find("meta", {"name": "csrftoken"})
         if not csrf_tag_file:
@@ -198,7 +201,7 @@ class RequestsClassThree():
         }
 
         files_resp = self.session.post(
-            self.getUrl(self.extra_pages["dir"]),
+            self.get_url(self.extra_pages["dir"]),
             data=payload,
             headers={
                 "User-Agent": "Mozilla/5.0",
