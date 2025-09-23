@@ -1,5 +1,5 @@
 import requests
-from data_sets import getAbbr
+from generalRequestsFns import get_branches, update_url
 
 
 class RequestsClassTwo():
@@ -41,25 +41,7 @@ class RequestsClassTwo():
         return all_branches
     
     def get_branches(self, cities):
-        branches = []
-
-        for branch_name in self.all_branches:
-            has_city = False
-
-            for city in cities:
-                if not has_city:
-                    if city in branch_name:
-                        has_city = True
-                    else:
-                        abbr = getAbbr(city)
-
-                        if abbr and abbr in branch_name:
-                            has_city = True
-
-            if has_city:
-                branches.append(branch_name)
-            
-        return branches
+        return get_branches(self, cities)
     
     def set_branches(self, branches, fileType=4, date=""):
         self.branches = {}
@@ -69,7 +51,7 @@ class RequestsClassTwo():
 
         return self.branches
 
-    def set_branch_single(self, branch_name, fileType=4, date=""):
+    def set_branch_single(self, branch_name, fileType=4, date="", file_number=0):
         storeId = self.all_branches[branch_name]
             
         payload = {
@@ -82,23 +64,26 @@ class RequestsClassTwo():
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "User-Agent": "Mozilla/5.0"
         }
-
-        response = self.session.post(self.get_url(self.main_page), data=payload, headers=headers)
         
-        try:
-            store_dict = response.json()[0]
-            row_dict = {
-                "date": store_dict["DateFile"],
-                "type": fileType,
-                "filename": store_dict["FileNm"],
-                "code": self.all_branches[branch_name]
-            }
-            row_dict["url"] = self.get_url(self.main_page) + "/Download/" + row_dict["filename"]
+        response = self.session.post(self.get_url(self.main_page), data=payload, headers=headers)
+        store_dict = response.json()
 
-            self.branches[branch_name] = row_dict
+        if len(store_dict) <= file_number:
+            return False, len(store_dict)
+        else:
+            dict_len = len(store_dict)
+            store_dict = store_dict[file_number]
 
-        except ValueError:
-            return False
+        row_dict = {
+            "date": store_dict["DateFile"],
+            "type": fileType,
+            "filename": store_dict["FileNm"],
+            "code": self.all_branches[branch_name]
+        }
+        row_dict["url"] = self.site_url + "/Download/" + row_dict["filename"]
+        self.branches[branch_name] = row_dict
+
+        return True, dict_len
 
     def update_url(self, branch_name):
-        self.set_branch_single(branch_name, self.all_branches["type"])
+        return update_url(self, branch_name)

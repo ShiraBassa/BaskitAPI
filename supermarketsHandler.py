@@ -4,6 +4,10 @@ from requestsThree import RequestsClassThree
 from enum import Enum
 import data_sets
 import update_db
+from tqdm import tqdm
+import threading
+from time import sleep
+from msgBarHandler import msg_bar
 
 
 SHUFERSAL = "shufersal"
@@ -58,7 +62,7 @@ STORE_CONFIG = {
     SHUK_HAYIR: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://shuk-hayir.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -67,7 +71,7 @@ STORE_CONFIG = {
     MAAYAN_2000: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://maayan2000.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -76,7 +80,7 @@ STORE_CONFIG = {
     GOOD_PHARM: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://goodpharm.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -84,8 +88,8 @@ STORE_CONFIG = {
 
     ZOL_VEBEGADOL: {
         "class": REQUESTS_CLASSES[1],
-        "base": "https://zolvebegadol.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "base": "https://ZolVebegadol.binaprojects.com",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -94,7 +98,7 @@ STORE_CONFIG = {
     SUPER_SAPIR: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://supersapir.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -103,7 +107,7 @@ STORE_CONFIG = {
     CITY_MARKET: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://citymarketkiryatgat.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -112,7 +116,7 @@ STORE_CONFIG = {
     SUPER_BAREKET: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://superbareket.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -121,7 +125,7 @@ STORE_CONFIG = {
     KT_SHIVUK: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://ktshivuk.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -130,7 +134,7 @@ STORE_CONFIG = {
     SHEFA_BIRKAT_HASHEM: {
         "class": REQUESTS_CLASSES[1],
         "base": "https://shefabirkathashem.binaprojects.com",
-        "main_page": "/Main.aspx",
+        "main_page": "/MainIO_Hok",
         "extra_pages": {
             "stores": "/Select_Store"
         }
@@ -354,17 +358,38 @@ class mainRequestsHandler():
         return stores_branches
 
     def set_branches(self, choices):
+        global msg_bar
+
         self.choices = choices
-        
+
+        # Create main progress bar (stores level)
+        main_bar_lock = threading.Lock()
+        main_bar = tqdm(total=len(self.choices), desc="Stores", position=0, leave=False, ncols=90)
+
         for store_name in self.choices:
             self.handlers[store_name].set_branches(self.choices[store_name])
 
             for branch_name in self.choices[store_name]:
                 if not update_db.if_branch_exists(store_name, branch_name):
-                    update_db.add_branch(store_name, branch_name, self.handlers[store_name].branches[branch_name]["url"], self.handlers[store_name])
+                    update_db.add_branch(
+                        store_name,
+                        branch_name,
+                        self.handlers[store_name].branches[branch_name]["url"],
+                        self.handlers[store_name],
+                        global_bar_lock=main_bar_lock,
+                        global_bar=main_bar
+                    )
+
+                    msg_bar_handler.add_msg(f"Finished branch: {branch_name}", True)
+
+            msg_bar_handler.add_msg(f"Finished store: {store_name}")
     
+        msg_bar_handler.close("Finished all stores")
+        main_bar.close()
+        
     def get_branches(self):
         return self.choices
+
     
 def update_database(handler):
     update_db.update_all_stores(handler.handlers)
@@ -373,15 +398,23 @@ if __name__ == "__main__":
     handler = mainRequestsHandler()
     cities = handler.get_all_cities()
     print(cities)
-    handler.set_cities([cities[0]])
+    handler.set_cities(cities[0:6])
 
     stores = handler.get_all_stores()
     print(stores)
-    handler.set_stores([stores[0]])
+    check_stores = [stores[0], stores[5]]
+    handler.set_stores(check_stores)
 
     stores_branches = handler.get_all_branches()
     print(stores_branches)
-    stores_branches[stores[0]] = [stores_branches[stores[0]][0]]
-    print(stores_branches)
-    handler.set_branches(stores_branches)
-    update_database(handler)
+    choices = {}
+
+    for store in check_stores:
+        choices[store] = [stores_branches[store][0]]
+        
+    print(choices)
+    #sleep(5)
+    print("\033c", end="")
+    msg_bar_handler = msg_bar()
+    handler.set_branches(choices)
+    #update_database(handler)

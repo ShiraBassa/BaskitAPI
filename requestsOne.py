@@ -1,10 +1,6 @@
-from flask import jsonify
 import requests
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor
-import re
-from data_sets import getAbbr
-import update_db
+from generalRequestsFns import get_branches, update_url
 
 
 class RequestsClassOne():
@@ -59,37 +55,20 @@ class RequestsClassOne():
             all_branches[clean_name.strip()] = int(code)
 
         return all_branches
-
+    
     def get_branches(self, cities):
-        branches = []
-
-        for branch_name in self.all_branches:
-            has_city = False
-
-            for city in cities:
-                if not has_city:
-                    if city in branch_name:
-                        has_city = True
-                    else:
-                        abbr = getAbbr(city)
-
-                        if abbr and abbr in branch_name:
-                            has_city = True
-
-            if has_city:
-                branches.append(branch_name)
-            
-        return branches
+        return get_branches(self, cities)
 
     def set_branches(self, branches, catID=2, sort="Time", sortdir="ASC"):
         self.branches = {}
 
         for branch in branches:
-            self.set_branch_single(branch, catID, self.all_branches[branch], sort, sortdir)
+            self.set_branch_single(branch, catID, sort, sortdir)
 
         return self.branches
     
-    def set_branch_single(self, branch_name, catID=2, storeId=0, sort="Time", sortdir="ASC"):
+    def set_branch_single(self, branch_name, catID=2, sort="Time", sortdir="ASC"):
+        storeId = self.all_branches[branch_name]
         response = requests.get(self.get_url(catID, storeId, sort, sortdir))
         
         if response.status_code != 200:
@@ -117,5 +96,4 @@ class RequestsClassOne():
         self.branches[branch_name] = row_dict
     
     def update_url(self, branch_name):
-        self.set_branch_single(branch_name, self.branches[branch_name]["type"])
-        return self.branches[branch_name]["url"]
+        return update_url(self, branch_name)
