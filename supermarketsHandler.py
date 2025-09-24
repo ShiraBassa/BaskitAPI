@@ -1,10 +1,15 @@
 from data_sets import *
+from generalRequestsFns import getCities
 import update_db
 from tqdm import tqdm
-import threading
 from time import sleep
 from msgBarHandler import msg_bar
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
+import traceback
 
+
+bars = {}
 
 class mainRequestsHandler():
     def __init__(self):
@@ -62,34 +67,68 @@ class mainRequestsHandler():
         return stores_branches
 
     def set_branches(self, choices):
-        global msg_bar
+        global msg_bar, bars
 
         self.choices = choices
+        main_bar = tqdm(
+            total=len(self.choices), 
+            desc="Setting Stores", 
+            position=0, 
+            leave=False, 
+            dynamic_ncols=True, 
+            bar_format=MAIN_BAR_FORMAT
+            )
+        pos = 1
+        bars = {}
 
-        # Create main progress bar (stores level)
-        main_bar_lock = threading.Lock()
-        main_bar = tqdm(total=len(self.choices), desc="Stores", position=0, leave=False, ncols=90)
+        with ThreadPoolExecutor() as executor:
+            futures = []
 
-        for store_name in self.choices:
-            self.handlers[store_name].set_branches(self.choices[store_name])
-
-            for branch_name in self.choices[store_name]:
-                if not update_db.if_branch_exists(store_name, branch_name):
-                    update_db.add_branch(
-                        store_name,
-                        branch_name,
-                        self.handlers[store_name].branches[branch_name]["url"],
-                        self.handlers[store_name],
-                        global_bar_lock=main_bar_lock,
-                        global_bar=main_bar
+            for store_name in self.choices:
+                bars[store_name] = tqdm(
+                    total=len(self.choices[store_name]), 
+                    desc=store_name, 
+                    position=pos, 
+                    leave=False, 
+                    dynamic_ncols=True, 
+                    bar_format=STORE_BAR_FORMAT
                     )
+                futures.append(
+                    executor.submit(self.set_branches_single_store, store_name)
+                )
+                pos += 1
 
-                    msg_bar_handler.add_msg(f"Finished branch: {branch_name}", True)
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as exc:
+                    print(f"Branch update generated an exception: {exc}")
+                    traceback.print_exc()  # full stack trace
+                finally:
+                    # Refresh the bar for each finished branch
+                    main_bar.update(1)
+        
+        msg_bar_handler.add_msg("Finished all stores")
 
-            msg_bar_handler.add_msg(f"Finished store: {store_name}")
-    
-        msg_bar_handler.close("Finished all stores")
+        for bar in bars.values():
+            bar.close()
+
+        bars = {}
         main_bar.close()
+
+    def set_branches_single_store(self, store_name):
+        self.handlers[store_name].set_branches(self.choices[store_name], msg_bar_handler=msg_bar_handler)
+    
+        for branch_name in self.choices[store_name]:
+            if not update_db.if_branch_exists(store_name, branch_name):
+                if not update_db.add_branch(
+                    store_name,
+                    branch_name,
+                    self.handlers[store_name]
+                ):
+                    msg_bar_handler.add_msg("Invalid file for branch: " + branch_name)
+
+            bars[store_name].update(1)
         
     def get_branches(self):
         return self.choices
@@ -97,17 +136,19 @@ class mainRequestsHandler():
     
 def update_database(handler):
     update_db.update_all_stores(handler.handlers)
+    msg_bar_handler.add_msg("Finished updating all")
 
-if __name__ == "__main__":
-    #update_db.remove_all()
+def main_test():
+    global msg_bar_handler
+    update_db.remove_all()
     handler = mainRequestsHandler()
     cities = handler.get_all_cities()
     print(cities)
-    handler.set_cities(cities[0:6])
+    handler.set_cities(cities)
 
     stores = handler.get_all_stores()
     print(stores)
-    check_stores = [stores[0], stores[5]]
+    check_stores = stores[0:10]
     handler.set_stores(check_stores)
 
     stores_branches = handler.get_all_branches()
@@ -115,11 +156,19 @@ if __name__ == "__main__":
     choices = {}
 
     for store in check_stores:
-        choices[store] = [stores_branches[store][0]]
+        if stores_branches[store]:
+            choices[store] = stores_branches[store][0:5]
+        else:
+            print("/////////", store, handler.handlers[store].all_branches)
+            sleep(100)
         
     print(choices)
-    #sleep(5)
+    #sleep(100)
     print("\033c", end="")
-    msg_bar_handler = msg_bar()
+    msg_bar_handler = msg_bar(len(choices) + 2)
     handler.set_branches(choices)
     #update_database(handler)
+    msg_bar_handler.close()
+
+if __name__ == "__main__":
+    main_test()

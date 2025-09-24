@@ -1,5 +1,5 @@
 import requests
-from generalRequestsFns import get_branches, update_url
+from generalRequestsFns import get_branches, update_url, sanitize_key
 
 
 class RequestsClassTwo():
@@ -36,22 +36,26 @@ class RequestsClassTwo():
         for store in stores:
             name = store["Nm"].strip()
             name_clean = " ".join(name.split()[1:]) if name[0].isdigit() else name
-            all_branches[name_clean] = int(store["Kod"])
+            clean_name = sanitize_key(clean_name)
+
+            if "חסום" not in name_clean and "הכל" not in name_clean:
+                all_branches[name_clean] = int(store["Kod"])
 
         return all_branches
     
     def get_branches(self, cities):
         return get_branches(self, cities)
     
-    def set_branches(self, branches, fileType=4, date=""):
+    def set_branches(self, branches, fileType=4, date="", msg_bar_handler=None):
         self.branches = {}
 
         for branch in branches:
-            self.set_branch_single(branch, fileType, date)
+            if not self.set_branch_single(branch, fileType, date) and msg_bar_handler:
+                msg_bar_handler.add_msg("Invalid file for branch " + branch)
 
         return self.branches
 
-    def set_branch_single(self, branch_name, fileType=4, date="", file_number=0):
+    def set_branch_single(self, branch_name, fileType=4, date=""):
         storeId = self.all_branches[branch_name]
             
         payload = {
@@ -67,13 +71,12 @@ class RequestsClassTwo():
         
         response = self.session.post(self.get_url(self.main_page), data=payload, headers=headers)
         store_dict = response.json()
-
-        if len(store_dict) <= file_number:
-            return False, len(store_dict)
+        
+        if not store_dict:
+            return False
         else:
-            dict_len = len(store_dict)
-            store_dict = store_dict[file_number]
-
+            store_dict = store_dict[0]
+            
         row_dict = {
             "date": store_dict["DateFile"],
             "type": fileType,
@@ -83,7 +86,7 @@ class RequestsClassTwo():
         row_dict["url"] = self.site_url + "/Download/" + row_dict["filename"]
         self.branches[branch_name] = row_dict
 
-        return True, dict_len
+        return True
 
     def update_url(self, branch_name):
         return update_url(self, branch_name)

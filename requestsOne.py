@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from generalRequestsFns import get_branches, update_url
+from generalRequestsFns import get_branches, update_url, sanitize_key
 
 
 class RequestsClassOne():
@@ -50,8 +50,8 @@ class RequestsClassOne():
         all_branches = {}
 
         for full_name, code in options.items():
-            # Remove leading "<number> - " from the key
             clean_name = full_name.split(' - ', 1)[1] if ' - ' in full_name else full_name
+            clean_name = sanitize_key(clean_name)
             all_branches[clean_name.strip()] = int(code)
 
         return all_branches
@@ -59,11 +59,12 @@ class RequestsClassOne():
     def get_branches(self, cities):
         return get_branches(self, cities)
 
-    def set_branches(self, branches, catID=2, sort="Time", sortdir="ASC"):
+    def set_branches(self, branches, catID=2, sort="Time", sortdir="ASC", msg_bar_handler=None):
         self.branches = {}
 
         for branch in branches:
-            self.set_branch_single(branch, catID, sort, sortdir)
+            if not self.set_branch_single(branch, catID, sort, sortdir) and msg_bar_handler:
+                msg_bar_handler.add_msg("Invalid file for branch " + branch)
 
         return self.branches
     
@@ -94,6 +95,8 @@ class RequestsClassOne():
         }
 
         self.branches[branch_name] = row_dict
+        
+        return True
     
     def update_url(self, branch_name):
         return update_url(self, branch_name)

@@ -1,17 +1,17 @@
 import requests
-from data_sets import getAbbr
+from generalRequestsFns import getAbbr, sanitize_key, get_branches, update_url
 from bs4 import BeautifulSoup
 import certifi
 import xml.etree.ElementTree as ET
 from enum import Enum
 
 class FileType(Enum):
-        PRICE = "price"
-        PRICE_FULL = "PriceFull"
-        PROMO_FULL = "PromoFull"
-        STORES = "Stores"
+    PRICE = "price"
+    PRICE_FULL = "PriceFull"
+    PROMO_FULL = "PromoFull"
+    STORES = "Stores"
 
-        DEFAULT = PRICE_FULL
+    DEFAULT = PRICE_FULL
 
 class BranchesMap(Enum):
     STORE_ID = 0
@@ -66,7 +66,7 @@ class RequestsClassThree():
         }
 
         login_resp = self.session.post(self.get_url(self.extra_pages["login_post"]), data=login_data, headers=headers, verify=certifi.where())
-        
+
         if "Sign In" in login_resp.text or "Not currently logged in" in login_resp.text:
             raise Exception("Login failed, check credentials or CSRF token")
 
@@ -85,7 +85,7 @@ class RequestsClassThree():
                 root = ET.fromstring(resp.content)
 
                 for store in root.findall(".//Store"):
-                    all_branches[store[BranchesMap.STORE_NAME.value].text] = int(store[BranchesMap.STORE_ID.value].text)
+                    all_branches[sanitize_key(store[BranchesMap.STORE_NAME.value].text)] = int(store[BranchesMap.STORE_ID.value].text)
             
             except ET.ParseError as e:
                 print("XML Parse Error:", e)
@@ -93,31 +93,14 @@ class RequestsClassThree():
         return all_branches
     
     def get_branches(self, cities):
-        branches = []
-
-        for branch_name in self.all_branches:
-            has_city = False
-
-            for city in cities:
-                if not has_city:
-                    if city in branch_name:
-                        has_city = True
-                    else:
-                        abbr = getAbbr(city)
-
-                        if abbr and abbr in branch_name:
-                            has_city = True
-
-            if has_city:
-                branches.append(branch_name)
-            
-        return branches
+        return get_branches(self, cities)
     
-    def set_branches(self, branches, fileType=FileType.DEFAULT.value, date=""):
+    def set_branches(self, branches, fileType=FileType.DEFAULT.value, date="", msg_bar_handler=None):
         self.branches = {}
 
         for branch in branches:
-            self.set_branch_single(branch, fileType, date)
+            if not self.set_branch_single(branch, fileType, date) and msg_bar_handler:
+                msg_bar_handler.add_msg("Invalid file for branch " + branch)
 
         return self.branches
 
@@ -129,22 +112,26 @@ class RequestsClassThree():
             filename = file["fname"]
 
             if filename.startswith(fileType):
-                row_dict = {
+                store_dict = {
                     "url": self.get_url(self.extra_pages["download"]) + filename,
                     "date": file["time"],
                     "type": fileType,
                     "filename": filename,
                     "code": int(filename.split("-")[1])
                 }
+                self.branches[branch_name] = store_dict
 
-                break
-        
-        print(row_dict)
+                return True
+            
+        return False
     
     def update_url(self, branch_name):
-        self.set_branch_single(branch_name, self.all_branches["type"])
-
+        return update_url(self, branch_name)
+    
     def search_and_fetch(self, search):
+        if search.isdigit():
+            search = f"{int(search):03}"
+
         # Step 3: GET /file page first to get updated CSRF token for file actions
         file_page_resp = self.session.get(self.get_url(self.main_page), headers={"User-Agent": "Mozilla/5.0"}, verify=certifi.where())
         soup_file = BeautifulSoup(file_page_resp.text, "html.parser")

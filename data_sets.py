@@ -7,15 +7,15 @@ REQUESTS_CLASSES = [RequestsClassOne, RequestsClassTwo, RequestsClassThree]
 
 
 SHUFERSAL = "shufersal"
-KING_STORE = "kingstore"
+KING_STORE = "king_store"
 SHUK_HAYIR = "shuk_hayir"
 MAAYAN_2000 = "maayan2000"
-GOOD_PHARM = "goodpharm"
-ZOL_VEBEGADOL = "zolvebegadol"
-SUPER_SAPIR = "supersapir"
-CITY_MARKET = "citymarket"
-SUPER_BAREKET = "superbareket"
-KT_SHIVUK = "ktshivuk"
+GOOD_PHARM = "good_pharm"
+ZOL_VEBEGADOL = "zol_vebegadol"
+SUPER_SAPIR = "super_sapir"
+CITY_MARKET = "city_market"
+SUPER_BAREKET = "super_bareket"
+KT_SHIVUK = "kt_shivuk"
 SHEFA_BIRKAT_HASHEM = "shefa_birkat_hashem"
 CARREFOUR = "carrefour"
 DOR_ALON = "dor_alon"
@@ -27,7 +27,7 @@ STOP_MARKET = "stop_market"
 POLITZER = "politzer"
 YELLOW = "yellow"
 SUPER_YUDA = "super_yuda"
-FRESHMARKET = "freshmarket"
+FRESH_MARKET = "fresh_market"
 KESHET_TEAMIM = "keshet_keamim"
 RAMI_LEVI = "rami_levi"
 SUPER_COFIX = "super_cofix"
@@ -134,16 +134,6 @@ STORE_CONFIG = {
         }
     },
 
-    CARREFOUR: {
-        "class": REQUESTS_CLASSES[0],
-        "base": "https://prices.carrefour.co.il",
-        "main_page": "/FileObject/UpdateCategory?",
-        "extra_vars": {
-            "dropdown_id": "branch_filter",
-            "default_item": "סניף"
-        }
-    },
-
     DOR_ALON: {
         "class": REQUESTS_CLASSES[2],
         "main_page": "/file",
@@ -246,18 +236,6 @@ STORE_CONFIG = {
         }
     },
 
-    FRESHMARKET: {
-        "class": REQUESTS_CLASSES[2],
-        "main_page": "/file",
-        "extra_pages": {
-            "login_base": "/login",
-            "login_post": "/login/user",
-            "dir": "/file/json/dir",
-            "download": "/file/d/"
-        },
-        "extra_vars": "freshmarket"
-    },
-
     KESHET_TEAMIM: {
         "class": REQUESTS_CLASSES[2],
         "main_page": "/file",
@@ -293,27 +271,18 @@ STORE_CONFIG = {
         },
         "extra_vars": "SuperCofixApp"
     }
+
+    # CARREFOUR: {
+    #     "class": REQUESTS_CLASSES[0],
+    #     "base": "https://prices.carrefour.co.il",
+    #     "main_page": "/FileObject/UpdateCategory?",
+    #     "extra_vars": {
+    #         "dropdown_id": "branch_filter",
+    #         "default_item": "סניף"
+    #     }
+    # }
 }
 
-
-cities = {
-    "תל אביב": 'ת"א',
-    "באר שבע": 'ב"ש',
-    "ראשון לציון": 'ראשל"צ',
-    "פתח תקווה": 'פ"ת',
-    "כפר סבא": 'כ"ס',
-    "אשקלון": None
-}
-
-
-def getCities(abbr=False):
-    if not abbr:
-        return list(cities.keys())
-    
-    return cities
-
-def getAbbr(key):
-    if key in cities:
-        return cities[key]
-    
-    return None
+MAIN_BAR_FORMAT = "{desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
+STORE_BAR_FORMAT = "    {desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
+MSG_BAR_FORMAT = "{desc}"
