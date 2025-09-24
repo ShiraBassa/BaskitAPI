@@ -1,8 +1,12 @@
-from supermarketsHandler import mainRequestsHandler
-from data_sets import *
-from update_db import update_all_stores
-from msgBarHandler import msg_bar
-from time import sleep
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from Classes.supermarketsHandler import mainRequestsHandler
+from Data.data_sets import *
+from Data.update_db import update_all_stores
+from Classes.msgBarHandler import msg_bar
 
 
 def get_all_existing_stores():

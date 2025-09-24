@@ -1,9 +1,9 @@
-from data_sets import *
-from generalRequestsFns import getCities
-import update_db
+from Data.data_sets import *
+from RequestClasses.generalRequestsFns import getCities
+import Data.update_db as update_db
 from tqdm import tqdm
 from time import sleep
-from msgBarHandler import msg_bar
+from Classes.msgBarHandler import msg_bar
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 import traceback

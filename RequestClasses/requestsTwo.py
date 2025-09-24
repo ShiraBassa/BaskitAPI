@@ -1,5 +1,5 @@
 import requests
-from generalRequestsFns import get_branches, update_url, sanitize_key
+from RequestClasses.generalRequestsFns import get_branches, update_url, sanitize_key
 
 
 class RequestsClassTwo():

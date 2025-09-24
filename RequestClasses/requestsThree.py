@@ -1,5 +1,5 @@
 import requests
-from generalRequestsFns import getAbbr, sanitize_key, get_branches, update_url
+from RequestClasses.generalRequestsFns import getAbbr, sanitize_key, get_branches, update_url
 from bs4 import BeautifulSoup
 import certifi
 import xml.etree.ElementTree as ET

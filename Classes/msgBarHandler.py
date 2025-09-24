@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from data_sets import MSG_BAR_FORMAT
+from Data.data_sets import MSG_BAR_FORMAT
 
 class msg_bar():
     def __init__(self, pos):

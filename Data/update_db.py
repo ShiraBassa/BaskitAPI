@@ -7,8 +7,8 @@ from tqdm import tqdm
 from concurrent.futures import as_completed
 import traceback
 import zipfile
-from data_sets import *
-from generalRequestsFns import sanitize_key
+from Data.data_sets import *
+from RequestClasses.generalRequestsFns import sanitize_key
 
 
 STORES_CHUNK_SIZE = 5

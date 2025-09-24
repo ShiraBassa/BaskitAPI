@@ -1,6 +1,6 @@
-from requestsOne import RequestsClassOne
-from requestsTwo import RequestsClassTwo
-from requestsThree import RequestsClassThree
+from RequestClasses.requestsOne import RequestsClassOne
+from RequestClasses.requestsTwo import RequestsClassTwo
+from RequestClasses.requestsThree import RequestsClassThree
 import firebase_admin
 from firebase_admin import credentials, db
 
@@ -288,7 +288,7 @@ MAIN_BAR_FORMAT = "{desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
 STORE_BAR_FORMAT = "    {desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
 MSG_BAR_FORMAT = "{desc}"
 
-cred = credentials.Certificate("baskitapi-firebase-adminsdk-fbsvc-52318252b7.json")
+cred = credentials.Certificate("Data/baskitapi-firebase-adminsdk-fbsvc-52318252b7.json")
 
 # Only initialize if no app exists
 if not firebase_admin._apps:

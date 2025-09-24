@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify, render_template_string
-from data_sets import getCities
-from supermarketsHandler import get_store_names
+from Data.data_sets import getCities
+from Classes.supermarketsHandler import get_store_names
 import json
 from urllib.parse import unquote_plus
 from flask import render_template_string
 import firebase_admin
 from firebase_admin import credentials, db
-from update_db import add_store, if_store_exists
+from Data.update_db import add_store, if_store_exists
 
 cred = credentials.Certificate("baskitapi-firebase-adminsdk-fbsvc-52318252b7.json")
 
