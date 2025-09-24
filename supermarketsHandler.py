@@ -66,8 +66,8 @@ class mainRequestsHandler():
 
         return stores_branches
 
-    def set_branches(self, choices):
-        global msg_bar, bars
+    def set_branches(self, choices, msg_bar_handler):
+        global bars
 
         self.choices = choices
         main_bar = tqdm(
@@ -94,7 +94,7 @@ class mainRequestsHandler():
                     bar_format=STORE_BAR_FORMAT
                     )
                 futures.append(
-                    executor.submit(self.set_branches_single_store, store_name)
+                    executor.submit(self.set_branches_single_store, store_name, msg_bar_handler)
                 )
                 pos += 1
 
@@ -116,7 +116,7 @@ class mainRequestsHandler():
         bars = {}
         main_bar.close()
 
-    def set_branches_single_store(self, store_name):
+    def set_branches_single_store(self, store_name, msg_bar_handler):
         self.handlers[store_name].set_branches(self.choices[store_name], msg_bar_handler=msg_bar_handler)
     
         for branch_name in self.choices[store_name]:
@@ -145,13 +145,8 @@ class mainRequestsHandler():
     def get_item_code(self, item_name):
         return str(items_name_code_ref.child(item_name).get())
 
-    
-def update_database(handler):
-    update_db.update_all_stores(handler.handlers)
-    msg_bar_handler.add_msg("Finished updating all")
 
 def main_test():
-    global msg_bar_handler
     #update_db.remove_all()
     handler = mainRequestsHandler()
     cities = handler.get_all_cities()
@@ -178,8 +173,7 @@ def main_test():
     #sleep(100)
     print("\033c", end="")
     msg_bar_handler = msg_bar(len(choices) + 2)
-    handler.set_branches(choices)
-    update_database(handler)
+    handler.set_branches(choices, msg_bar_handler)
     msg_bar_handler.close()
 
 if __name__ == "__main__":

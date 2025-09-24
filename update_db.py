@@ -11,6 +11,9 @@ from data_sets import *
 from generalRequestsFns import sanitize_key
 
 
+STORES_CHUNK_SIZE = 5
+ITEMS_CHUNK_SIZE = 100000
+
 bars = {}
 
 def update_all_stores(handlers):
@@ -36,20 +39,10 @@ def update_all_stores(handlers):
         futures = []
 
         for store_name in stores:
-            branch_urls = list(stores_urls_ref.child(store_name).get().items())
-            bars[store_name] = tqdm(
-                total=len(branch_urls), 
-                desc=store_name,
-                position=pos, 
-                leave=False, 
-                dynamic_ncols=True, 
-                bar_format=STORE_BAR_FORMAT
-                )
-            pos += 1
-
             futures.append(
-                executor.submit(update_store, store_name, handlers[store_name], branch_urls)
+                executor.submit(update_store, store_name, handlers[store_name], pos)
             )
+            pos += 1
         
         for future in as_completed(futures):
             try:
@@ -67,7 +60,17 @@ def update_all_stores(handlers):
     bars = {}
     main_bar.close()
 
-def update_store(store_name, hanlder, branch_urls):
+def update_store(store_name, hanlder, pos):
+    branch_urls = list(stores_urls_ref.child(store_name).get().items())
+    bars[store_name] = tqdm(
+        total=len(branch_urls), 
+        desc=store_name,
+        position=pos, 
+        leave=False, 
+        dynamic_ncols=True, 
+        bar_format=STORE_BAR_FORMAT
+        )
+    
     for branch_name, branch_url in branch_urls:
         update_branch(store_name, branch_name, branch_url, hanlder)
         bars[store_name].update(1)
@@ -222,9 +225,6 @@ def add_branch(store_name, branch_name, store_handler):
 
 def if_branch_exists(store_name, branch_name):
     return stores_urls_ref.child(store_name).child(branch_name).get() is not None
-
-STORES_CHUNK_SIZE = 5
-ITEMS_CHUNK_SIZE = 100000
 
 def clear_all():
     try:
