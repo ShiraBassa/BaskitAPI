@@ -132,6 +132,18 @@ class mainRequestsHandler():
         
     def get_branches(self):
         return self.choices
+    
+    def get_item_prices_by_code(self, item_code):
+        return items_stores_ref.child(item_code).get()
+
+    def get_item_prices_by_name(self, item_name):
+        return items_stores_ref.child(self.get_item_code(item_name)).get()
+
+    def get_item_name(self, item_code):
+        return items_code_name_ref.child(str(item_code)).get()
+
+    def get_item_code(self, item_name):
+        return str(items_name_code_ref.child(item_name).get())
 
     
 def update_database(handler):
@@ -140,7 +152,7 @@ def update_database(handler):
 
 def main_test():
     global msg_bar_handler
-    update_db.remove_all()
+    #update_db.remove_all()
     handler = mainRequestsHandler()
     cities = handler.get_all_cities()
     print(cities)
@@ -148,7 +160,7 @@ def main_test():
 
     stores = handler.get_all_stores()
     print(stores)
-    check_stores = stores[0:10]
+    check_stores = stores
     handler.set_stores(check_stores)
 
     stores_branches = handler.get_all_branches()
@@ -157,9 +169,9 @@ def main_test():
 
     for store in check_stores:
         if stores_branches[store]:
-            choices[store] = stores_branches[store][0:5]
+            choices[store] = [stores_branches[store][0]]
         else:
-            print("/////////", store, handler.handlers[store].all_branches)
+            print("/////////", store, handler.handlers[store].all_branches, "////")
             sleep(100)
         
     print(choices)
@@ -167,7 +179,7 @@ def main_test():
     print("\033c", end="")
     msg_bar_handler = msg_bar(len(choices) + 2)
     handler.set_branches(choices)
-    #update_database(handler)
+    update_database(handler)
     msg_bar_handler.close()
 
 if __name__ == "__main__":

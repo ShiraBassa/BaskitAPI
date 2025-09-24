@@ -36,7 +36,7 @@ class RequestsClassTwo():
         for store in stores:
             name = store["Nm"].strip()
             name_clean = " ".join(name.split()[1:]) if name[0].isdigit() else name
-            clean_name = sanitize_key(clean_name)
+            name_clean = sanitize_key(name_clean)
 
             if "חסום" not in name_clean and "הכל" not in name_clean:
                 all_branches[name_clean] = int(store["Kod"])

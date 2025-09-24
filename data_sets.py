@@ -1,7 +1,8 @@
 from requestsOne import RequestsClassOne
 from requestsTwo import RequestsClassTwo
 from requestsThree import RequestsClassThree
-
+import firebase_admin
+from firebase_admin import credentials, db
 
 REQUESTS_CLASSES = [RequestsClassOne, RequestsClassTwo, RequestsClassThree]
 
@@ -286,3 +287,17 @@ STORE_CONFIG = {
 MAIN_BAR_FORMAT = "{desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
 STORE_BAR_FORMAT = "    {desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
 MSG_BAR_FORMAT = "{desc}"
+
+cred = credentials.Certificate("baskitapi-firebase-adminsdk-fbsvc-52318252b7.json")
+
+# Only initialize if no app exists
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': 'https://baskitapi-default-rtdb.firebaseio.com/'
+    })
+    
+stores_items_ref = db.reference('Stores-Items')
+items_stores_ref = db.reference('Items-Stores')
+stores_urls_ref = db.reference('Stores-Urls')
+items_code_name_ref = db.reference('Items_Code-Name')
+items_name_code_ref = db.reference('Items_Name-Code')
