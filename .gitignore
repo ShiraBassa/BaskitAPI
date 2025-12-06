@@ -1,0 +1,7 @@
+# Ignore secret keys
+Data/baskit_key.json
+Data/baskit_api_key.json
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
