@@ -1,99 +1,203 @@
-from flask import Flask, request, jsonify, render_template_string
-from Data.data_sets import getCities
-from Classes.supermarketsHandler import get_store_names
-import json
-from urllib.parse import unquote_plus
-from flask import render_template_string
-import firebase_admin
-from firebase_admin import credentials, db
-from Data.update_db import add_store, if_store_exists
+import sys
+import os
+from functools import wraps
+from flask import Flask, request, jsonify, Response
+import logging
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+import click
+from flask.cli import show_server_banner
+from time import sleep
+from firebase_admin import auth
+from functools import wraps
+import ast
+from flask_compress import Compress
 
-cred = credentials.Certificate("baskitapi-firebase-adminsdk-fbsvc-52318252b7.json")
-
-# Only initialize if no app exists
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://baskitapi-default-rtdb.firebaseio.com/'
-    })
-
-
-# Access Stores
-stores_items_ref = db.reference('Stores-Items')
-
-# Access Items
-items_stores_ref = db.reference('Items-Stores')
+# Disable Flask server banner
+click.echo = lambda *args, **kwargs: None
+show_server_banner = lambda *args, **kwargs: None
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Classes.userHandler import User
+from Classes.msgBarHandler import msg_bar
+from Data.data_sets import app_baskit
 
 app = Flask(__name__)
-
+Compress(app)
+users = {}
 user_selections = {}
-user_urls = {}
 
-@app.route("/cities", methods=["GET"])
-def get_cities():
-    abbr = request.args.get("abbr", False)
+# JWT decorator to protect endpoints
+def firebase_token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        firebase_token = request.headers.get("FirebaseToken", "")
 
-    return app.response_class(
-        response=json.dumps(getCities(abbr), ensure_ascii=False),
-        status=200,
-        mimetype='application/json; charset=utf-8'
-    )
+        if not firebase_token:
+            return jsonify({"error": "Token missing or invalid"}), 401
 
-@app.route("/stores", methods=["GET"])
-def get_stores():
-    user_id = request.args.get("userId")
-    cities = request.args.getlist("cities")
+        try:
+            decoded_token = auth.verify_id_token(firebase_token, app=app_baskit)
+            user_id = decoded_token['uid']
 
-    if not cities:
-        return jsonify({"error": "cities required"}), 400
+        except Exception as e:
+            return jsonify({"error": "Invalid token", "details": str(e)}), 401
+        
+        return f(user_id, *args, **kwargs)
     
-    response, user_urls[user_id] = get_store_names(cities)
+    return decorated
 
-    return app.response_class(
-        response=json.dumps(response, ensure_ascii=False),
-        status=200,
-        mimetype='application/json; charset=utf-8'
-    )
+# Login: returns JWT token
+@app.route("/user", methods=["POST"])
+@firebase_token_required
+def user_certification(user_id):
+    if not user_id in users.keys():
+        users[user_id] = User(user_id)
+        print(user_id)
 
-@app.route("/user-selection", methods=["POST"])
-def user_selection():
+    return jsonify({"message": f"User {user_id} registered"}), 200
+
+# Cities endpoint
+@app.route("/cities", methods=["GET", "POST"])
+@firebase_token_required
+def cities_function(user_id):
+    if request.method == "POST":
+        data = request.get_json()  # parse JSON automatically
+
+        if not data or "cities" not in data:
+            return jsonify({"message": "No cities provided"}), 400
+
+        cities = data["cities"]
+        users[user_id].set_cities(cities)
+
+        return jsonify({"message": "Cities set"}), 200
+    
+    elif request.method == "GET":
+        cities = users[user_id].get_all_cities()
+        return jsonify(cities)  # <- always return JSON array
+    
+# Stores endpoint
+@app.route("/stores", methods=["GET", "POST"])
+@firebase_token_required
+def stores_function(user_id):
+    if request.method == "POST":
+        data = request.get_json()  # parse JSON automatically
+
+        if not data or "stores" not in data:
+            return jsonify({"message": "No stores provided"}), 400
+
+        stores = data["stores"]  # now a proper list
+        users[user_id].set_stores(stores)
+
+        return jsonify({"message": "Stores set"}), 200
+
+    elif request.method == "GET":
+        stores = users[user_id].get_all_stores()
+        return jsonify(stores)  # <- always return JSON array
+    
+# Branches endpoint
+@app.route("/branches", methods=["GET", "POST"])
+@firebase_token_required
+def branches_function(user_id):
+    if request.method == "POST":
+        data = request.get_json()
+    
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid JSON"}), 400
+    
+        stores_branches = data
+        msg_bar_handler = msg_bar(len(stores_branches))
+        users[user_id].set_branches(stores_branches, msg_bar_handler)
+        msg_bar_handler.close()
+        
+        return jsonify({"message": "Branches set"}), 200
+    
+    elif request.method == "GET":
+        branches_dict = users[user_id].get_all_branches()
+        return jsonify(branches_dict)  # <- always return JSON object
+
+@app.route("/choices", methods=["GET"])
+@firebase_token_required
+def get_choices(user_id):
+    if request.method == "GET":
+        branches_dict = users[user_id].get_choices()
+        return jsonify(branches_dict)  # <- always return JSON object
+
+@app.route("/items", methods=["GET"])
+@firebase_token_required
+def get_item_names(user_id):
+    items = users[user_id].get_all_items()
+    
+    if items:
+        return items
+    
+    return jsonify({"message": "No items"}), 404
+
+@app.route("/item_name", methods=["GET"])
+@firebase_token_required
+def get_item_name(user_id):
+    item_code = request.args.get("item_code")
+    
+    if not item_code:
+        return jsonify({"message": "item_code not provided"}), 400
+
+    item_name = users[user_id].get_item_name(item_code)
+    
+    if item_name:
+        return item_name
+    
+    return jsonify({"message": "No name for this item"}), 404
+
+@app.route("/items_code_name", methods=["POST"])
+@firebase_token_required
+def get_items_code_name(user_id):
     data = request.get_json()
-    user_id = data.get("userId")
-    stores = data.get("stores", [])
 
-    if not user_id:
-        return jsonify({"error": "userId is required"}), 400
+    if not data or "item_codes" not in data:
+        return jsonify({"message": "item_codes not provided"}), 400
 
-    user_selections[user_id] = [unquote_plus(store).replace("\\", '"') for store in stores]
-
-    for selection in user_selections[user_id]:
-        if not if_store_exists(selection):
-            add_store(selection, user_urls[user_id][selection]["url"])
-
-    return jsonify({"status": "ok"}), 200
-
-@app.route("/")
-def main():
-    if request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-        return "Please choose one of these options:\n" + \
-            "- Get Cities - /cities\n" + \
-            "- Get Stores - /stores?cities\n" + \
-            "- User Selection - /user-selection\n"
+    item_codes = data["item_codes"]
+    items_code_name = users[user_id].get_items_code_name(item_codes)
     
+    return items_code_name
+
+@app.route("/item_code", methods=["GET"])
+@firebase_token_required
+def get_item_code(user_id):
+    item_name = request.args.get("item_name")
+    
+    if not item_name:
+        return jsonify({"message": "item_name not provided"}), 400
+
+    item_code = users[user_id].get_item_code(item_name)
+    
+    if item_code:
+        return item_code
+    
+    return jsonify({"message": "No name for this item"}), 404
+
+@app.route("/item_prices", methods=["GET"])
+@firebase_token_required
+def get_item_prices(user_id):
+    item_name = request.args.get("item_name")
+    item_code = request.args.get("item_code")
+
+    if item_code:
+        item_prices = users[user_id].get_item_prices_by_code(item_code)
+    elif item_name:
+        item_prices = users[user_id].get_item_prices_by_name(item_name)
     else:
-        html = """
-        <html>
-          <head><title>Baskit API</title></head>
-          <body>
-            <h1>Please choose one of these options:</h1>
-            <ul>
-              <li>Get Cities - /cities</li>
-              <li>Get Stores - /stores?cities</li>
-              <li>User Selection - /user-selection</li>
-            </ul>
-          </body>
-        </html>
-        """
-        return render_template_string(html)
+        return jsonify({"message": "item_code/item_name not provided"}), 400
     
+    if item_prices:
+        return item_prices
+    
+    return jsonify({"message": "No prices found for this item"}), 404
+
+# Default route
+@app.route("/")
+def default_route():
+    return jsonify({"message": 
+        "Please choose one of these options: ..."}), 200
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    print("\033c")
+    app.run(host="0.0.0.0", port=5001, debug=True)
