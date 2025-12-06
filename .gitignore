@@ -1,0 +1,5 @@
+Data/baskit_key.json
+Data/baskit_api_key.json
+
+__pycache__/
+*.pyc
