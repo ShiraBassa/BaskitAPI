@@ -2,8 +2,6 @@ from Data.data_sets import *
 from RequestClasses.generalRequestsFns import getCities
 import Data.update_db as update_db
 from tqdm import tqdm
-from time import sleep
-from Classes.msgBarHandler import msg_bar
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 import traceback
@@ -11,17 +9,31 @@ import traceback
 
 bars = {}
 
-class mainRequestsHandler():
-    def __init__(self):
+class User():
+    def __init__(self, user_id=None, is_admin=False):
+        self.user_id = user_id
+        self.is_admin = is_admin  # Flag to distinguish admin users
         self.cities = []
-        self.handlers = {}
         self.choices = {}
+        self.handlers = {}
+
+        # Only load from Firebase if it's a regular user
+        if not is_admin and user_id and users_choices_ref:
+            self.self_ref = users_choices_ref.child(user_id)
+            data = self.self_ref.get() or {}  # Safe default if no data
+            self.cities = list(data.get("cities", []))
+            self.choices = dict(data.get("choices", {}))
+
+            if self.choices:
+                self.set_stores(list(self.choices.keys()))
 
     def get_all_cities(self):
         return getCities()
     
     def set_cities(self, cities):
         self.cities = cities
+        users_choices_ref.child(self.user_id).child("cities").set(cities)
+        self.self_ref = users_choices_ref.child(self.user_id)
 
     def get_cities(self):
         return self.cities
@@ -63,7 +75,7 @@ class mainRequestsHandler():
 
         for store_name in self.handlers:
             stores_branches[store_name] = self.handlers[store_name].get_branches(self.cities)
-
+            
         return stores_branches
 
     def set_branches(self, choices, msg_bar_handler):
@@ -116,6 +128,9 @@ class mainRequestsHandler():
         bars = {}
         main_bar.close()
 
+        if not self.is_admin:
+            self.self_ref.child("choices").set(choices)
+
     def set_branches_single_store(self, store_name, msg_bar_handler):
         self.handlers[store_name].set_branches(self.choices[store_name], msg_bar_handler=msg_bar_handler)
     
@@ -133,48 +148,62 @@ class mainRequestsHandler():
     def get_branches(self):
         return self.choices
     
-    def get_item_prices_by_code(self, item_code):
-        return items_stores_ref.child(item_code).get()
-
-    def get_item_prices_by_name(self, item_name):
-        return items_stores_ref.child(self.get_item_code(item_name)).get()
-
     def get_item_name(self, item_code):
         return items_code_name_ref.child(str(item_code)).get()
 
     def get_item_code(self, item_name):
         return str(items_name_code_ref.child(item_name).get())
+    
+    def get_item_prices_by_code(self, item_code, all=False):
+        all_prices = items_stores_ref.child(item_code).get()
 
+        if all:
+            return all_prices
 
-def main_test():
-    #update_db.remove_all()
-    handler = mainRequestsHandler()
-    cities = handler.get_all_cities()
-    print(cities)
-    handler.set_cities(cities)
+        prices = {}
 
-    stores = handler.get_all_stores()
-    print(stores)
-    check_stores = stores
-    handler.set_stores(check_stores)
+        for store_name in all_prices:
+            if store_name in self.choices:
+                for branch_name in self.choices[store_name]:
+                    if branch_name in all_prices[store_name]:
+                        if store_name not in prices:
+                            prices[store_name] = {}
+                        
+                        prices[store_name][branch_name] = all_prices[store_name][branch_name]
 
-    stores_branches = handler.get_all_branches()
-    print(stores_branches)
-    choices = {}
+        return prices
 
-    for store in check_stores:
-        if stores_branches[store]:
-            choices[store] = [stores_branches[store][0]]
-        else:
-            print("/////////", store, handler.handlers[store].all_branches, "////")
-            sleep(100)
-        
-    print(choices)
-    #sleep(100)
-    print("\033c", end="")
-    msg_bar_handler = msg_bar(len(choices) + 2)
-    handler.set_branches(choices, msg_bar_handler)
-    msg_bar_handler.close()
+    def get_item_prices_by_name(self, item_name, all=False):
+        return self.get_item_prices_by_code(self.get_item_code(item_name), all)
+    
+    def get_all_items(self):
+        all_items = {}
 
-if __name__ == "__main__":
-    main_test()
+        for store_name, branches in self.choices.items():
+            for branch_name in branches:
+                branch_items = stores_items_ref.child(store_name).child(branch_name).get() or {}
+
+                for item_code, item_price in branch_items.items():
+                    if item_code not in all_items:
+                        all_items[item_code] = {}
+                    
+                    if store_name not in all_items[item_code]:
+                        all_items[item_code][store_name] = {}
+
+                    all_items[item_code][store_name][branch_name] = item_price
+
+        return all_items
+    
+    def get_items_code_name(self, codes):
+        items_code_names = {}
+
+        if codes:
+            items_snapshot = items_code_name_ref.get() or {}
+            
+            for code in codes:
+                items_code_names[code] = items_snapshot.get(str(code))
+
+        return items_code_names
+    
+    def get_choices(self):
+        return self.choices

@@ -3,9 +3,9 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from Classes.supermarketsHandler import mainRequestsHandler
+from Classes.userHandler import User
 from Data.data_sets import *
-from Data.update_db import update_all_stores
+from Data.update_db import update_all_stores, remove_all
 from Classes.msgBarHandler import msg_bar
 
 
@@ -23,7 +23,7 @@ def get_all_existing_stores():
 
 
 def main():
-    handler = mainRequestsHandler()
+    handler = User(is_admin=True)
     stores_branches = get_all_existing_stores()
 
     print("\033c", end="")

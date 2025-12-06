@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from RequestClasses.requestsOne import RequestsClassOne
 from RequestClasses.requestsTwo import RequestsClassTwo
 from RequestClasses.requestsThree import RequestsClassThree
@@ -7,31 +12,31 @@ from firebase_admin import credentials, db
 REQUESTS_CLASSES = [RequestsClassOne, RequestsClassTwo, RequestsClassThree]
 
 
-SHUFERSAL = "shufersal"
-KING_STORE = "king_store"
-SHUK_HAYIR = "shuk_hayir"
-MAAYAN_2000 = "maayan2000"
-GOOD_PHARM = "good_pharm"
-ZOL_VEBEGADOL = "zol_vebegadol"
-SUPER_SAPIR = "super_sapir"
-CITY_MARKET = "city_market"
-SUPER_BAREKET = "super_bareket"
-KT_SHIVUK = "kt_shivuk"
-SHEFA_BIRKAT_HASHEM = "shefa_birkat_hashem"
-CARREFOUR = "carrefour"
-DOR_ALON = "dor_alon"
-TIV_TAAM = "tiv_taam"
-YOHANANOF = "yohananof"
-OSHER_AD = "osher_ad"
-SALAH_DABAH = "salah_dabah"
-STOP_MARKET = "stop_market"
-POLITZER = "politzer"
-YELLOW = "yellow"
-SUPER_YUDA = "super_yuda"
-FRESH_MARKET = "fresh_market"
-KESHET_TEAMIM = "keshet_keamim"
-RAMI_LEVI = "rami_levi"
-SUPER_COFIX = "super_cofix"
+SHUFERSAL = "שופרסל"
+KING_STORE = "קינג סטור"
+SHUK_HAYIR = "שוק העיר"
+MAAYAN_2000 = "מעיין אלפיים"
+GOOD_PHARM = "גוד פארם"
+ZOL_VEBEGADOL = "זול ובגדול"
+SUPER_SAPIR = "סופר ספיר"
+CITY_MARKET = "סיטי מרקט"
+SUPER_BAREKET = "סופר ברקת"
+KT_SHIVUK = "קיי.טי. שיווק"
+SHEFA_BIRKAT_HASHEM = "שפע ברכת השם"
+CARREFOUR = "קרפור"
+DOR_ALON = "דור אלון"
+TIV_TAAM = "טיב טעם"
+YOHANANOF = "יוחננוף"
+OSHER_AD = "אושר עד"
+SALAH_DABAH = "סלאח דבאח"
+STOP_MARKET = "סטופ מרקט"
+POLITZER = "פוליצר"
+YELLOW = "יילו"
+SUPER_YUDA = "סופר יודה"
+FRESH_MARKET = "פרשמרקט"
+KESHET_TEAMIM = "קשת טעמים"
+RAMI_LEVI = "רמי לוי"
+SUPER_COFIX = "סופר קופיקס"
 
 
 STORE_CONFIG = {
@@ -288,16 +293,19 @@ MAIN_BAR_FORMAT = "{desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
 STORE_BAR_FORMAT = "    {desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
 MSG_BAR_FORMAT = "{desc}"
 
-cred = credentials.Certificate("Data/baskitapi-firebase-adminsdk-fbsvc-52318252b7.json")
+cred_api = credentials.Certificate("Data/baskit_api_key.json")
+app_api = firebase_admin.initialize_app(cred_api, {
+    'databaseURL': 'https://baskitapi-default-rtdb.firebaseio.com/'
+}, name="baskit_api_app")
 
-# Only initialize if no app exists
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://baskitapi-default-rtdb.firebaseio.com/'
-    })
+cred_baskit = credentials.Certificate("Data/baskit_key.json")
+app_baskit = firebase_admin.initialize_app(cred_baskit, {
+    'databaseURL': 'https://baskit-b6600-default-rtdb.firebaseio.com/'
+}, name="baskit_app")
     
-stores_items_ref = db.reference('Stores-Items')
-items_stores_ref = db.reference('Items-Stores')
-stores_urls_ref = db.reference('Stores-Urls')
-items_code_name_ref = db.reference('Items_Code-Name')
-items_name_code_ref = db.reference('Items_Name-Code')
+stores_items_ref = db.reference('Stores-Items', app=app_api)
+items_stores_ref = db.reference('Items-Stores', app=app_api)
+stores_urls_ref = db.reference('Stores-Urls', app=app_api)
+items_code_name_ref = db.reference('Items_Code-Name', app=app_api)
+items_name_code_ref = db.reference('Items_Name-Code', app=app_api)
+users_choices_ref = db.reference('Users-Choices', app=app_api)
