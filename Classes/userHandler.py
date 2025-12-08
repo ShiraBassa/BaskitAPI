@@ -83,43 +83,51 @@ class User():
 
         self.choices = choices
         main_bar = tqdm(
-            total=len(self.choices), 
-            desc="Setting Stores", 
-            position=0, 
-            leave=False, 
-            dynamic_ncols=True, 
+            total=len(self.choices),
+            desc="Setting Stores",
+            position=0,
+            leave=False,
+            dynamic_ncols=True,
             bar_format=MAIN_BAR_FORMAT
-            )
+        )
         pos = 1
         bars = {}
 
-        with ThreadPoolExecutor() as executor:
-            futures = []
+        branches_to_add = []
 
-            for store_name in self.choices:
-                bars[store_name] = tqdm(
-                    total=len(self.choices[store_name]), 
-                    desc=store_name, 
-                    position=pos, 
-                    leave=False, 
-                    dynamic_ncols=True, 
-                    bar_format=STORE_BAR_FORMAT
-                    )
-                futures.append(
-                    executor.submit(self.set_branches_single_store, store_name, msg_bar_handler)
-                )
-                pos += 1
+        for store_name in self.choices:
+            bars[store_name] = tqdm(
+                total=len(self.choices[store_name]),
+                desc=store_name,
+                position=pos,
+                leave=False,
+                dynamic_ncols=True,
+                bar_format=STORE_BAR_FORMAT
+            )
+            pos += 1
 
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as exc:
-                    print(f"Branch update generated an exception: {exc}")
-                    traceback.print_exc()  # full stack trace
-                finally:
-                    # Refresh the bar for each finished branch
-                    main_bar.update(1)
-        
+            # Determine missing branches
+            missing_branches = [
+                b for b in self.choices[store_name]
+                if not update_db.if_branch_exists(store_name, b)
+            ]
+
+            # Populate handler's branches for missing ones
+            if missing_branches and hasattr(self.handlers[store_name], "set_branches"):
+                self.handlers[store_name].set_branches(missing_branches, msg_bar_handler=msg_bar_handler)
+
+            for branch_name in self.choices[store_name]:
+                if branch_name in missing_branches:
+                    try:
+                        update_db.add_branch(store_name, branch_name, self.handlers[store_name])
+                        branches_to_add.append((store_name, branch_name))
+                    except Exception as e:
+                        msg_bar_handler.add_msg(f"Failed to add branch {branch_name}: {e}")
+
+                bars[store_name].update(1)
+
+            main_bar.update(1)
+
         msg_bar_handler.add_msg("Finished all stores")
 
         for bar in bars.values():
@@ -131,20 +139,18 @@ class User():
         if not self.is_admin:
             self.self_ref.child("choices").set(choices)
 
-    def set_branches_single_store(self, store_name, msg_bar_handler):
+    def set_branches_single_store(self, store_name, msg_bar_handler, branches_to_add):
         self.handlers[store_name].set_branches(self.choices[store_name], msg_bar_handler=msg_bar_handler)
-    
+
         for branch_name in self.choices[store_name]:
             if not update_db.if_branch_exists(store_name, branch_name):
-                if not update_db.add_branch(
-                    store_name,
-                    branch_name,
-                    self.handlers[store_name]
-                ):
+                if update_db.add_branch(store_name, branch_name, self.handlers[store_name]):
+                    branches_to_add.append((store_name, branch_name))
+                else:
                     msg_bar_handler.add_msg("Invalid file for branch: " + branch_name)
 
             bars[store_name].update(1)
-        
+
     def get_branches(self):
         return self.choices
     
