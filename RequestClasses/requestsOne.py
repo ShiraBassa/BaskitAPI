@@ -12,7 +12,8 @@ class RequestsClassOne():
         "stores": 5
     }
 
-    def __init__(self, _site_url, _main_page, _extra_vars):
+    def __init__(self, _store_name, _site_url, _main_page, _extra_vars):
+        self.store_name = _store_name
         self.all_urls = {}
         self.site_url = _site_url
         self.main_page = _main_page

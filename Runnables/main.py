@@ -71,9 +71,17 @@ def cities_function(user_id):
         return jsonify({"message": "Cities set"}), 200
     
     elif request.method == "GET":
+        cities = users[user_id].cities
+        return jsonify(cities)  # <- always return JSON array
+    
+@app.route("/all_cities", methods=["GET"])
+@firebase_token_required
+def all_cities_function(user_id):
+    if request.method == "GET":
         cities = users[user_id].get_all_cities()
         return jsonify(cities)  # <- always return JSON array
     
+
 # Stores endpoint
 @app.route("/stores", methods=["GET", "POST"])
 @firebase_token_required
@@ -105,7 +113,9 @@ def branches_function(user_id):
     
         stores_branches = data
         msg_bar_handler = msg_bar(len(stores_branches))
+        
         users[user_id].set_branches(stores_branches, msg_bar_handler)
+
         msg_bar_handler.close()
         
         return jsonify({"message": "Branches set"}), 200

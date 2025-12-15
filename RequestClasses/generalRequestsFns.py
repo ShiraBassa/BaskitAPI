@@ -46,6 +46,9 @@ def get_branches(handler, cities):
     return branches
 
 def update_url(self, branch_name):
+    if branch_name not in self.branches:
+        return None
+
     self.set_branch_single(branch_name, self.branches[branch_name]["type"])
     return self.branches[branch_name]["url"]
 

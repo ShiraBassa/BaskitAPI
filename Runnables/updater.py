@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from Classes.userHandler import User
 from Data.data_sets import *
-from Data.update_db import update_all_stores, remove_all
+from Data.update_db import update_all_stores, remove_all, if_exists_in_db, add_branch
 from Classes.msgBarHandler import msg_bar
 
 
@@ -20,7 +20,6 @@ def get_all_existing_stores():
             stores_branches[store_name].append(branch_name)
 
     return stores_branches
-
 
 def main():
     handler = User(is_admin=True)

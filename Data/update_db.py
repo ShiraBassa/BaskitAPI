@@ -88,6 +88,11 @@ def update_branch(store_name, branch_name, branch_url, store_handler):
 
         if response.status_code == 403 and store_handler:
             new_url = store_handler.update_url(branch_name)
+            
+            if new_url is None:
+                #!!!!!!!skipping the branch!!!!!!
+                return False
+            
             stores_urls_ref.child(store_name).child(branch_name).set(new_url)
             branch_url = new_url
             continue
@@ -148,6 +153,9 @@ def update_branch(store_name, branch_name, branch_url, store_handler):
     items = list(root.findall('./Items/Item'))
                 
     for item in items:
+        if item is None:
+            break
+
         item_code = item.find('ItemCode').text.strip()
         price = float(item.find('ItemPrice').text.strip())
         item_name = item.find('ItemName')
@@ -224,7 +232,18 @@ def add_branch(store_name, branch_name, store_handler):
     return True
 
 def if_branch_exists(store_name, branch_name):
-    return stores_urls_ref.child(store_name).child(branch_name).get() is not None
+    in_items = if_exists_in_db(store_name, branch_name)
+    in_urls = stores_urls_ref.child(store_name).child(branch_name).get() is not None
+    
+    return in_items and in_urls
+
+def if_exists_in_db(store_name, branch_name):
+    store_ref = stores_items_ref.child(store_name)
+
+    if store_ref.get() is None:
+        return False
+    
+    return store_ref.child(branch_name).get() is not None
 
 def clear_all():
     try:

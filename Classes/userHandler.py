@@ -21,7 +21,13 @@ class User():
         if not is_admin and user_id and users_choices_ref:
             self.self_ref = users_choices_ref.child(user_id)
             data = self.self_ref.get() or {}  # Safe default if no data
-            self.cities = list(data.get("cities", []))
+
+            cities_data = data.get("cities", [])
+            if isinstance(cities_data, dict):
+                self.cities = [c for c in cities_data.values() if c is not None]
+            else:
+                self.cities = [c for c in cities_data if c is not None]  # remove nulls
+                
             self.choices = dict(data.get("choices", {}))
 
             if self.choices:
@@ -31,6 +37,7 @@ class User():
         return getCities()
     
     def set_cities(self, cities):
+        cities = [c for c in cities if c is not None]
         self.cities = cities
         users_choices_ref.child(self.user_id).child("cities").set(cities)
         self.self_ref = users_choices_ref.child(self.user_id)
@@ -47,18 +54,21 @@ class User():
         for store_name in stores:
             if "extra_pages" in STORE_CONFIG[store_name] and "extra_vars" in STORE_CONFIG[store_name]:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
+                    _store_name = store_name,
                     _main_page = STORE_CONFIG[store_name]["main_page"],
                     _extra_pages = STORE_CONFIG[store_name]["extra_pages"],
                     _extra_vars = STORE_CONFIG[store_name]["extra_vars"]
                 )
             elif "extra_pages" in STORE_CONFIG[store_name]:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
+                    _store_name = store_name,
                     _site_url = STORE_CONFIG[store_name]["base"], 
                     _main_page = STORE_CONFIG[store_name]["main_page"],
                     _extra_pages = STORE_CONFIG[store_name]["extra_pages"],
                 )
             else:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
+                    _store_name = store_name,
                     _site_url = STORE_CONFIG[store_name]["base"], 
                     _main_page = STORE_CONFIG[store_name]["main_page"],
                     _extra_vars = STORE_CONFIG[store_name]["extra_vars"],
@@ -74,7 +84,10 @@ class User():
         stores_branches = {}
 
         for store_name in self.handlers:
-            stores_branches[store_name] = self.handlers[store_name].get_branches(self.cities)
+            branches = self.handlers[store_name].get_branches(self.cities)
+            
+            if branches:
+                stores_branches[store_name] = branches
             
         return stores_branches
 

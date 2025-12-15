@@ -86,14 +86,14 @@ STORE_CONFIG = {
         }
     },
 
-    ZOL_VEBEGADOL: {
-        "class": REQUESTS_CLASSES[1],
-        "base": "https://ZolVebegadol.binaprojects.com",
-        "main_page": "/MainIO_Hok",
-        "extra_pages": {
-            "stores": "/Select_Store"
-        }
-    },
+    #ZOL_VEBEGADOL: {
+    #    "class": REQUESTS_CLASSES[1],
+    #    "base": "https://ZolVebegadol.binaprojects.com",
+    #    "main_page": "/MainIO_Hok",
+    #    "extra_pages": {
+    #        "stores": "/Select_Store"
+    #    }
+    #},
 
     SUPER_SAPIR: {
         "class": REQUESTS_CLASSES[1],
