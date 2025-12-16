@@ -66,7 +66,7 @@ def update_store(store_name, hanlder, pos):
         total=len(branch_urls), 
         desc=store_name,
         position=pos, 
-        leave=False, 
+        leave=False,
         dynamic_ncols=True, 
         bar_format=STORE_BAR_FORMAT
         )
@@ -79,17 +79,20 @@ def update_branch(store_name, branch_name, branch_url, store_handler):
     gz_file_path = None
     xml_file_path = None
     
-    # Initialize branch progress bars dict
     if store_handler and not hasattr(store_handler, "_search_bars"):
         store_handler._search_bars = {}
         
     while True:
         response = store_handler.session.get(branch_url, stream=True)
 
-        if response.status_code == 403 and store_handler:
+        if response.status_code == 200:
+            content = response.content
+            break
+
+        if (response.status_code == 403 or response.status_code == 200) and store_handler:
             new_url = store_handler.update_url(branch_name)
             
-            if new_url is None:
+            if not new_url:
                 #!!!!!!!skipping the branch!!!!!!
                 return False
             
@@ -97,14 +100,12 @@ def update_branch(store_name, branch_name, branch_url, store_handler):
             branch_url = new_url
             continue
 
-        elif response.status_code == 404:
+        if response.status_code == 404:
             return False
         
-        else:
-            content = response.content
-            break
+        return False
     
-    if 'content' not in locals():
+    if content is None:
         return False
     
     if content[:2] == b'\x1f\x8b':  # gz
@@ -148,63 +149,94 @@ def update_branch(store_name, branch_name, branch_url, store_handler):
     for elem in root.iter():
         if '}' in elem.tag:
             elem.tag = elem.tag.split('}', 1)[1]
-
-    # Now you can safely find ItemName
+            
     items = list(root.findall('./Items/Item'))
                 
     for item in items:
         if item is None:
             break
 
-        item_code = item.find('ItemCode').text.strip()
+        item_code_from_xml = item.find('ItemCode').text.strip()
         price = float(item.find('ItemPrice').text.strip())
-        item_name = item.find('ItemName')
-        
-        if item_code is None or price is None:
+        item_name_elem = item.find('ItemName')
+
+        if item_code_from_xml is None or price is None:
             continue
 
-        if item_name is not None:
-            item_name = sanitize_key(item_name.text)
+        item_name = None
+        
+        if item_name_elem is not None:
+            item_name = sanitize_key(item_name_elem.text)
 
-        if item_code in old_branch:
-            if old_branch[item_code] != price:
-                branch_updates[item_code] = price
-        else:
-            branch_updates[item_code] = price
+        if not item_name or item_name == "null" or item_name == "":
+            continue
 
-        if item_code in old_items:
-            item_updates[item_code] = dict(old_items[item_code])
+        canonical_code = item_code_from_xml
+        is_deduplicating = False
 
-            if store_name in item_updates[item_code]:
-                if branch_name in item_updates[item_code][store_name] and \
-                    item_updates[item_code][store_name][branch_name] == price:
-                    continue
+        if item_name:
+            if item_name in old_items_name_info:
+                canonical_code = old_items_name_info[item_name]
+                items_info_code_updates[canonical_code] = item_name
+                items_info_name_updates[item_name] = canonical_code
+                
             else:
-                item_updates[item_code][store_name] = {}
-            
-            item_updates[item_code][store_name] = dict(item_updates[item_code][store_name])
-            item_updates[item_code][store_name][branch_name] = price
+                if item_name not in items_info_name_updates:
+                    items_info_name_updates[item_name] = item_code_from_xml
+                if item_code_from_xml not in items_info_code_updates:
+                    items_info_code_updates[item_code_from_xml] = item_name
 
+        if canonical_code in old_branch:
+            if old_branch[canonical_code] != price:
+                branch_updates[canonical_code] = price
         else:
-            item_updates[item_code] = {
+            branch_updates[canonical_code] = price
+
+        if is_deduplicating:
+            if item_code_from_xml in old_branch:
+                branch_updates[item_code_from_xml] = None
+            
+            # fully remove duplicate item code everywhere
+            items_stores_ref.child(item_code_from_xml).delete()
+            items_code_name_ref.child(item_code_from_xml).delete()
+
+            all_stores = stores_items_ref.get() or {}
+            for s in all_stores:
+                for b in all_stores[s] or {}:
+                    stores_items_ref.child(s).child(b).child(item_code_from_xml).delete()
+
+        if canonical_code in old_items:
+            current_item_data = item_updates.get(canonical_code, dict(old_items[canonical_code]))
+            item_updates[canonical_code] = current_item_data
+            
+            if store_name not in item_updates[canonical_code]:
+                item_updates[canonical_code][store_name] = {}
+            
+            item_updates[canonical_code][store_name] = dict(item_updates[canonical_code][store_name])
+            item_updates[canonical_code][store_name][branch_name] = price
+            
+        else:
+            item_updates[canonical_code] = {
                 store_name: {
                     branch_name: price
                 }
             }
-            
-        if item_name and item_code and item_code not in old_items_code_info:
-            items_info_code_updates[item_code] = item_name
-
-        if item_name and item_code and item_name not in old_items_name_info:
-            items_info_name_updates[item_name] = item_code
-
 
     if branch_updates:
         stores_items_ref.child(store_name).child(branch_name).update(branch_updates)
 
-    if item_updates:
-        items_stores_ref.update(item_updates)
-    
+    all_existing_items = items_stores_ref.get() or {}
+
+    for code, new_data in item_updates.items():
+        existing = all_existing_items.get(code, {})
+        for store, branches in new_data.items():
+            if store not in existing:
+                existing[store] = {}
+            existing[store].update(branches)
+        all_existing_items[code] = existing
+
+    items_stores_ref.update(all_existing_items)
+
     if items_info_code_updates:
         items_code_name_ref.update(items_info_code_updates)
     
@@ -274,6 +306,38 @@ def clear_all():
                 items_stores_ref.update(delete_dict)
 
             items_stores_ref.delete()
+
+    except Exception as e:
+        print(f"Error clearing items: {e}")
+
+    try:
+        items = items_code_name_ref.get()
+
+        if items:
+            item_keys = list(items.keys())
+
+            for i in range(0, len(item_keys), ITEMS_CHUNK_SIZE):
+                chunk = item_keys[i:i + ITEMS_CHUNK_SIZE]
+                delete_dict = {key: None for key in chunk}
+                items_code_name_ref.update(delete_dict)
+
+            items_code_name_ref.delete()
+
+    except Exception as e:
+        print(f"Error clearing items: {e}")
+
+    try:
+        items = items_name_code_ref.get()
+
+        if items:
+            item_keys = list(items.keys())
+
+            for i in range(0, len(item_keys), ITEMS_CHUNK_SIZE):
+                chunk = item_keys[i:i + ITEMS_CHUNK_SIZE]
+                delete_dict = {key: None for key in chunk}
+                items_name_code_ref.update(delete_dict)
+
+            items_name_code_ref.delete()
 
     except Exception as e:
         print(f"Error clearing items: {e}")

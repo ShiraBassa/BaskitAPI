@@ -52,7 +52,17 @@ def update_url(self, branch_name):
     self.set_branch_single(branch_name, self.branches[branch_name]["type"])
     return self.branches[branch_name]["url"]
 
+import re
+
 def sanitize_key(key: str) -> str:
+    if not key:
+        return ""
+    
+    name = key.strip()
+    name = name.lower()
+    name = re.sub(r'\s+', ' ', name)
+    
     for ch in ILLEGAL_FIREBASE_CHARS:
-        key = key.replace(ch, "_")
-    return key
+        name = name.replace(ch, "_")
+        
+    return name

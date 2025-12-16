@@ -4,6 +4,7 @@ import Data.update_db as update_db
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
+from concurrent.futures import ThreadPoolExecutor
 import traceback
 
 
@@ -119,16 +120,20 @@ class User():
             )
             pos += 1
 
+            # Populate handler's branches for missing ones
+            main_bar.update(1)
             # Determine missing branches
             missing_branches = [
                 b for b in self.choices[store_name]
                 if not update_db.if_branch_exists(store_name, b)
             ]
 
-            # Populate handler's branches for missing ones
             if missing_branches and hasattr(self.handlers[store_name], "set_branches"):
-                self.handlers[store_name].set_branches(missing_branches, msg_bar_handler=msg_bar_handler)
-
+                self.handlers[store_name].set_branches(
+                    missing_branches,
+                    msg_bar_handler=msg_bar_handler
+                )
+                
             for branch_name in self.choices[store_name]:
                 if branch_name in missing_branches:
                     try:
@@ -138,8 +143,6 @@ class User():
                         msg_bar_handler.add_msg(f"Failed to add branch {branch_name}: {e}")
 
                 bars[store_name].update(1)
-
-            main_bar.update(1)
 
         msg_bar_handler.add_msg("Finished all stores")
 
@@ -223,9 +226,7 @@ class User():
             
             if str_code in available_items:
                 name = items_snapshot.get(str_code)
-                
-                if name and name != "null":
-                    result[str_code] = name
+                result[str_code] = name
         
         return result
     
