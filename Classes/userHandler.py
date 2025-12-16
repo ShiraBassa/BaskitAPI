@@ -177,19 +177,18 @@ class User():
         all_prices = items_stores_ref.child(item_code).get()
 
         if all:
-            return all_prices
-
+            return {store: {branch: price for branch, price in branches.items() if price is not None} 
+                for store, branches in all_prices.items()}
+    
         prices = {}
 
         for store_name in all_prices:
             if store_name in self.choices:
                 for branch_name in self.choices[store_name]:
-                    if branch_name in all_prices[store_name]:
-                        if store_name not in prices:
-                            prices[store_name] = {}
-                        
-                        prices[store_name][branch_name] = all_prices[store_name][branch_name]
-
+                    price = all_prices[store_name].get(branch_name)
+                    if price is not None:
+                        prices.setdefault(store_name, {})[branch_name] = price
+        
         return prices
 
     def get_item_prices_by_name(self, item_name, all=False):
@@ -213,16 +212,22 @@ class User():
 
         return all_items
     
-    def get_items_code_name(self, codes):
-        items_code_names = {}
-
-        if codes:
-            items_snapshot = items_code_name_ref.get() or {}
+    def get_items_code_name(self, item_codes):
+        available_items = self.get_all_items().keys()
+        result = {}
+        
+        items_snapshot = items_code_name_ref.get() or {}
+        
+        for code in item_codes:
+            str_code = str(code)
             
-            for code in codes:
-                items_code_names[code] = items_snapshot.get(str(code))
-
-        return items_code_names
+            if str_code in available_items:
+                name = items_snapshot.get(str_code)
+                
+                if name and name != "null":
+                    result[str_code] = name
+        
+        return result
     
     def get_choices(self):
         return self.choices
