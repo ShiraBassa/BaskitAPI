@@ -2,28 +2,41 @@ from Data.data_sets import *
 from RequestClasses.generalRequestsFns import getCities
 import Data.update_db as update_db
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import as_completed
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import traceback
 
 
 bars = {}
 
+def _get_existing_branches(store_name: str):
+    ref = stores_items_ref.child(store_name)
+    
+    try:
+        data = ref.get(shallow=True) or {}
+    except TypeError:
+        data = ref.get() or {}
+    except Exception:
+        data = ref.get() or {}
+
+    if isinstance(data, dict):
+        return set(data.keys())
+    
+    return set()
+
 class User():
     def __init__(self, user_id=None, is_admin=False):
         self.user_id = user_id
-        self.is_admin = is_admin  # Flag to distinguish admin users
+        self.is_admin = is_admin
         self.cities = []
         self.choices = {}
         self.handlers = {}
 
-        # Only load from Firebase if it's a regular user
         if not is_admin and user_id and users_choices_ref:
             self.self_ref = users_choices_ref.child(user_id)
-            data = self.self_ref.get() or {}  # Safe default if no data
+            data = self.self_ref.get() or {}
 
             cities_data = data.get("cities", [])
+            
             if isinstance(cities_data, dict):
                 self.cities = [c for c in cities_data.values() if c is not None]
             else:
@@ -109,10 +122,13 @@ class User():
 
         branches_to_add = []
 
+        executor = ThreadPoolExecutor(max_workers=12)
+        pending_futures = {}
+
         for store_name in self.choices:
             bars[store_name] = tqdm(
                 total=len(self.choices[store_name]),
-                desc=store_name,
+                desc=store_name[::-1],
                 position=pos,
                 leave=False,
                 dynamic_ncols=True,
@@ -120,12 +136,12 @@ class User():
             )
             pos += 1
 
-            # Populate handler's branches for missing ones
             main_bar.update(1)
-            # Determine missing branches
+            existing_branches = _get_existing_branches(store_name)
+
             missing_branches = [
                 b for b in self.choices[store_name]
-                if not update_db.if_branch_exists(store_name, b)
+                if b not in existing_branches
             ]
 
             if missing_branches and hasattr(self.handlers[store_name], "set_branches"):
@@ -134,17 +150,29 @@ class User():
                     msg_bar_handler=msg_bar_handler
                 )
                 
-            for branch_name in self.choices[store_name]:
-                if branch_name in missing_branches:
-                    try:
-                        update_db.add_branch(store_name, branch_name, self.handlers[store_name])
-                        branches_to_add.append((store_name, branch_name))
-                    except Exception as e:
-                        msg_bar_handler.add_msg(f"Failed to add branch {branch_name}: {e}")
+            for branch_name in missing_branches:
+                fut = executor.submit(
+                    update_db.add_branch,
+                    store_name,
+                    branch_name,
+                    self.handlers[store_name]
+                )
+                pending_futures[fut] = (store_name, branch_name)
 
-                bars[store_name].update(1)
+            bars[store_name].update(len(self.choices[store_name]))
 
-        msg_bar_handler.add_msg("Finished all stores")
+        for fut in as_completed(pending_futures):
+            store_name, branch_name = pending_futures[fut]
+            
+            try:
+                if fut.result():
+                    branches_to_add.append((store_name, branch_name))
+            except Exception as e:
+                msg_bar_handler.add_msg(f"Failed to add branch {store_name}/{branch_name}: {e}")
+
+        executor.shutdown(wait=True)
+
+        msg_bar_handler.add_msg("Finished setting the stores")
 
         for bar in bars.values():
             bar.close()

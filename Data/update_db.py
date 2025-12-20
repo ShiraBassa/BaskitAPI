@@ -25,6 +25,8 @@ def update_all_stores(handlers):
     if not stores:
         return
     
+    old_items_name_info = items_name_code_ref.get() or {}
+
     main_bar = tqdm(
         total=len(stores), 
         desc="Updating Stores", 
@@ -40,7 +42,7 @@ def update_all_stores(handlers):
 
         for store_name in stores:
             futures.append(
-                executor.submit(update_store, store_name, handlers[store_name], pos)
+                executor.submit(update_store, store_name, handlers[store_name], pos, old_items_name_info)
             )
             pos += 1
         
@@ -49,9 +51,8 @@ def update_all_stores(handlers):
                 future.result()
             except Exception as exc:
                 print(f"Branch update generated an exception: {exc}")
-                traceback.print_exc()  # full stack trace
+                traceback.print_exc()
             finally:
-                # Refresh the bar for each finished branch
                 main_bar.update(1)
         
     for bar in bars.values():
@@ -60,22 +61,33 @@ def update_all_stores(handlers):
     bars = {}
     main_bar.close()
 
-def update_store(store_name, hanlder, pos):
+def update_store(store_name, hanlder, pos, old_items_name_info):
     branch_urls = list(stores_urls_ref.child(store_name).get().items())
     bars[store_name] = tqdm(
         total=len(branch_urls), 
-        desc=store_name,
+        desc=store_name[::-1],
         position=pos, 
         leave=False,
         dynamic_ncols=True, 
         bar_format=STORE_BAR_FORMAT
         )
     
-    for branch_name, branch_url in branch_urls:
-        update_branch(store_name, branch_name, branch_url, hanlder)
-        bars[store_name].update(1)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [
+            executor.submit(update_branch, store_name, branch_name, branch_url, hanlder, old_items_name_info)
+            for branch_name, branch_url in branch_urls
+        ]
 
-def update_branch(store_name, branch_name, branch_url, store_handler):
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as exc:
+                print(f"Branch update generated an exception: {exc}")
+                traceback.print_exc()
+            finally:
+                bars[store_name].update(1)
+
+def update_branch(store_name, branch_name, branch_url, store_handler, old_items_name_info=None):
     gz_file_path = None
     xml_file_path = None
     
@@ -139,103 +151,75 @@ def update_branch(store_name, branch_name, branch_url, store_handler):
     root = tree.getroot()
         
     branch_updates = {}
-    item_updates = {}
+    items_store_path_updates = {}
     items_info_code_updates = {}
     items_info_name_updates = {}
-    old_items = items_stores_ref.get() or {}
-    old_branch = stores_items_ref.child(store_name).child(branch_name).get() or {}
-    old_items_code_info = items_code_name_ref.get() or {}
-    old_items_name_info = items_name_code_ref.get() or {}
-    for elem in root.iter():
-        if '}' in elem.tag:
-            elem.tag = elem.tag.split('}', 1)[1]
-            
-    items = list(root.findall('./Items/Item'))
+    ignored_codes = set()
+
+    if old_items_name_info is None:
+        old_items_name_info = items_name_code_ref.get() or {}
+
+    items = list(root.findall('.//{*}Items/{*}Item'))
                 
     for item in items:
         if item is None:
             break
 
-        item_code_from_xml = item.find('ItemCode').text.strip()
-        price = float(item.find('ItemPrice').text.strip())
-        item_name_elem = item.find('ItemName')
+        item_code_text = item.findtext('{*}ItemCode')
+        price_text = item.findtext('{*}ItemPrice')
+        item_name_text = item.findtext('{*}ItemName')
 
-        if item_code_from_xml is None or price is None:
+        if not item_code_text or not price_text:
             continue
 
-        item_name = None
-        
-        if item_name_elem is not None:
-            item_name = sanitize_key(item_name_elem.text)
+        item_code_from_xml = item_code_text.strip()
+        try:
+            price = float(price_text.strip())
+        except Exception:
+            continue
+
+        item_name = sanitize_key(item_name_text) if item_name_text else None
 
         if not item_name or item_name == "null" or item_name == "":
             continue
 
         canonical_code = item_code_from_xml
-        is_deduplicating = False
 
         if item_name:
             if item_name in old_items_name_info:
                 canonical_code = old_items_name_info[item_name]
                 items_info_code_updates[canonical_code] = item_name
                 items_info_name_updates[item_name] = canonical_code
-                
+
+                if item_code_from_xml != canonical_code:
+                    items_info_code_updates[item_code_from_xml] = None
+                    ignored_codes.add(item_code_from_xml)
             else:
                 if item_name not in items_info_name_updates:
                     items_info_name_updates[item_name] = item_code_from_xml
                 if item_code_from_xml not in items_info_code_updates:
                     items_info_code_updates[item_code_from_xml] = item_name
 
-        if canonical_code in old_branch:
-            if old_branch[canonical_code] != price:
-                branch_updates[canonical_code] = price
-        else:
-            branch_updates[canonical_code] = price
+        branch_updates[canonical_code] = price
 
-        if is_deduplicating:
-            if item_code_from_xml in old_branch:
-                branch_updates[item_code_from_xml] = None
-            
-            # fully remove duplicate item code everywhere
-            items_stores_ref.child(item_code_from_xml).delete()
-            items_code_name_ref.child(item_code_from_xml).delete()
-
-            all_stores = stores_items_ref.get() or {}
-            for s in all_stores:
-                for b in all_stores[s] or {}:
-                    stores_items_ref.child(s).child(b).child(item_code_from_xml).delete()
-
-        if canonical_code in old_items:
-            current_item_data = item_updates.get(canonical_code, dict(old_items[canonical_code]))
-            item_updates[canonical_code] = current_item_data
-            
-            if store_name not in item_updates[canonical_code]:
-                item_updates[canonical_code][store_name] = {}
-            
-            item_updates[canonical_code][store_name] = dict(item_updates[canonical_code][store_name])
-            item_updates[canonical_code][store_name][branch_name] = price
-            
-        else:
-            item_updates[canonical_code] = {
-                store_name: {
-                    branch_name: price
-                }
-            }
+        # Store the price under the canonical code, without reading/merging the entire DB.
+        items_store_path_updates[f"{canonical_code}/{store_name}/{branch_name}"] = price
 
     if branch_updates:
         stores_items_ref.child(store_name).child(branch_name).update(branch_updates)
 
-    all_existing_items = items_stores_ref.get() or {}
+    if ignored_codes:
+        stores_items_ref.child(store_name).child(branch_name).update({code: None for code in ignored_codes})
 
-    for code, new_data in item_updates.items():
-        existing = all_existing_items.get(code, {})
-        for store, branches in new_data.items():
-            if store not in existing:
-                existing[store] = {}
-            existing[store].update(branches)
-        all_existing_items[code] = existing
+    if items_store_path_updates:
+        items_stores_ref.update(items_store_path_updates)
 
-    items_stores_ref.update(all_existing_items)
+    if ignored_codes:
+        delete_paths = {
+            f"{code}/{store_name}/{branch_name}": None
+            for code in ignored_codes
+        }
+        items_stores_ref.update(delete_paths)
 
     if items_info_code_updates:
         items_code_name_ref.update(items_info_code_updates)
@@ -258,7 +242,7 @@ def add_branch(store_name, branch_name, store_handler):
     branch_url = store_handler.branches[branch_name]["url"]
     stores_urls_ref.child(store_name).child(branch_name).set(branch_url)
 
-    if not update_branch(store_name, branch_name, branch_url, store_handler):
+    if not update_branch(store_name, branch_name, branch_url, store_handler, None):
         return False
 
     return True
