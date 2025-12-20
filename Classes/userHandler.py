@@ -207,9 +207,15 @@ class User():
     def get_item_prices_by_code(self, item_code, all=False):
         all_prices = items_stores_ref.child(item_code).get()
 
+        if not all_prices or not isinstance(all_prices, dict):
+            return {}
+
         if all:
-            return {store: {branch: price for branch, price in branches.items() if price is not None} 
-                for store, branches in all_prices.items()}
+            return {
+                store: {branch: price for branch, price in branches.items() if price is not None}
+                for store, branches in all_prices.items()
+                if isinstance(branches, dict)
+            }
     
         prices = {}
 
@@ -228,18 +234,31 @@ class User():
     def get_all_items(self):
         all_items = {}
 
+        if not self.choices:
+            return all_items
+
         for store_name, branches in self.choices.items():
+            if not branches:
+                continue
+
             for branch_name in branches:
                 branch_items = stores_items_ref.child(store_name).child(branch_name).get() or {}
 
-                for item_code, item_price in branch_items.items():
-                    if item_code not in all_items:
-                        all_items[item_code] = {}
-                    
-                    if store_name not in all_items[item_code]:
-                        all_items[item_code][store_name] = {}
+                if not isinstance(branch_items, dict):
+                    continue
 
-                    all_items[item_code][store_name][branch_name] = item_price
+                for item_code, item_price in branch_items.items():
+                    if item_code is None:
+                        continue
+
+                    code = str(item_code).strip()
+                    if not code or code.lower() == "null":
+                        continue
+
+                    if item_price is None or item_price <= 0:
+                        continue
+
+                    all_items.setdefault(code, {}).setdefault(store_name, {})[branch_name] = item_price
 
         return all_items
     
