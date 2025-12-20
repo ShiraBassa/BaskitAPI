@@ -202,6 +202,10 @@ def get_item_prices(user_id):
     
     return jsonify({"message": "No prices found for this item"}), 404
 
+@app.get("/active")
+def isActive():
+    return {"ok": True}, 200
+
 # Default route
 @app.route("/")
 def default_route():
