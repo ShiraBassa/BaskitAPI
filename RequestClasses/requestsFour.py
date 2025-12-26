@@ -19,17 +19,7 @@ class RequestsClassFour():
             "branch_filter": None
         }
 
-    def get_url(self, catID=2, storeId=0, sort="Time", sortdir="ASC"):
-        return  self.site_url + self.main_page + \
-                "catID=" + str(catID) + \
-                "&storeId=" + str(storeId) + \
-                "&sort=" + sort + \
-                "&sortdir=" + sortdir
-
-    def get_endpoint_url(self):
-        return self.site_url + self.main_page
-
-    def get_all_branches(self, force_refresh: bool = False):
+    def get_all_branches(self, force_refresh=False):
         if not force_refresh:
             return dict(self.all_branches)
         

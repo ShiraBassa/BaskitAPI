@@ -38,7 +38,7 @@ class RequestsClassThree():
 
         self.session = requests.Session()
         self.login()
-        self.all_branches = self.get_all_branches()
+        self.all_branches = self.get_all_branches(force_refresh=True)
 
     def get_url(self, page_name):
         return self.site_url + page_name
@@ -71,7 +71,12 @@ class RequestsClassThree():
         if "Sign In" in login_resp.text or "Not currently logged in" in login_resp.text:
             raise Exception("Login failed, check credentials or CSRF token")
 
-    def get_all_branches(self):
+    def get_all_branches(self, force_refresh=False):
+        if not force_refresh:
+            return dict(self.all_branches)
+        
+        self.all_branches = {}
+        
         store_names_file = self.search_and_fetch(FileType.STORES.value)[0]
         store_names_file = self.get_url(self.extra_pages["download"]) + store_names_file["fname"]
 

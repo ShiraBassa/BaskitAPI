@@ -21,7 +21,7 @@ class RequestsClassOne():
         self.branches = {}
 
         self.session = requests.Session()
-        self.all_branches = self.get_all_branches()
+        self.all_branches = self.get_all_branches(force_refresh=True)
 
     def get_url(self, catID=2, storeId=0, sort="Time", sortdir="ASC"):
         return  self.site_url + self.main_page + \
@@ -30,7 +30,12 @@ class RequestsClassOne():
                 "&sort=" + sort + \
                 "&sortdir=" + sortdir
     
-    def get_all_branches(self):
+    def get_all_branches(self, force_refresh=False):
+        if not force_refresh:
+            return dict(self.all_branches)
+        
+        self.all_branches = {}
+        
         response = self.session.get(self.site_url)
         
         if response.status_code != 200:

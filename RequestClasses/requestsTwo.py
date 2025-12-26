@@ -20,12 +20,17 @@ class RequestsClassTwo():
         self.branches = {}
 
         self.session = requests.Session()
-        self.all_branches = self.get_all_branches()
+        self.all_branches = self.get_all_branches(force_refresh=True)
 
     def get_url(self, page_name):
         return self.site_url + page_name + ".aspx"
 
-    def get_all_branches(self):
+    def get_all_branches(self, force_refresh=False):
+        if not force_refresh:
+            return dict(self.all_branches)
+        
+        self.all_branches = {}
+        
         response = self.session.post(self.get_url(self.extra_pages["stores"]), data={})
         
         if response.status_code != 200:
