@@ -32,12 +32,12 @@ def get_branches(handler, cities):
 
         for city in cities:
             if not has_city:
-                if city in branch_name:
+                if city in branch_name or city.replace(" ", "-") in branch_name:
                     has_city = True
                 else:
                     abbr = getAbbr(city)
 
-                    if abbr and abbr in branch_name:
+                    if abbr and (abbr in branch_name or abbr.replace('"', "'") in branch_name):
                         has_city = True
 
         if has_city:

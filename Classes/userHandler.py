@@ -66,25 +66,33 @@ class User():
         self.handlers = {}
 
         for store_name in stores:
-            if "extra_pages" in STORE_CONFIG[store_name] and "extra_vars" in STORE_CONFIG[store_name]:
+            store_class = STORE_CONFIG[store_name]["class"]
+
+            if store_class == RequestsClassOne:
+                self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
+                    _store_name = store_name,
+                    _site_url = STORE_CONFIG[store_name]["base"], 
+                    _main_page = STORE_CONFIG[store_name]["main_page"],
+                    _extra_vars = STORE_CONFIG[store_name]["extra_vars"],
+                )
+            elif store_class == RequestsClassTwo:
+                self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
+                    _store_name = store_name,
+                    _site_url = STORE_CONFIG[store_name]["base"], 
+                    _main_page = STORE_CONFIG[store_name]["main_page"],
+                    _extra_pages = STORE_CONFIG[store_name]["extra_pages"],
+                )
+            elif store_class == RequestsClassThree:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
                     _store_name = store_name,
                     _main_page = STORE_CONFIG[store_name]["main_page"],
                     _extra_pages = STORE_CONFIG[store_name]["extra_pages"],
                     _extra_vars = STORE_CONFIG[store_name]["extra_vars"]
                 )
-            elif "extra_pages" in STORE_CONFIG[store_name]:
+            elif store_class == RequestsClassFour:
                 self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
                     _store_name = store_name,
-                    _site_url = STORE_CONFIG[store_name]["base"], 
-                    _main_page = STORE_CONFIG[store_name]["main_page"],
-                    _extra_pages = STORE_CONFIG[store_name]["extra_pages"],
-                )
-            else:
-                self.handlers[store_name] = STORE_CONFIG[store_name]["class"](
-                    _store_name = store_name,
-                    _site_url = STORE_CONFIG[store_name]["base"], 
-                    _main_page = STORE_CONFIG[store_name]["main_page"],
+                    _site_url = STORE_CONFIG[store_name]["base"],
                     _extra_vars = STORE_CONFIG[store_name]["extra_vars"],
                 )
 

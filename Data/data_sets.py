@@ -6,10 +6,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from RequestClasses.requestsOne import RequestsClassOne
 from RequestClasses.requestsTwo import RequestsClassTwo
 from RequestClasses.requestsThree import RequestsClassThree
+from RequestClasses.requestsFour import RequestsClassFour
 import firebase_admin
 from firebase_admin import credentials, db
 
-REQUESTS_CLASSES = [RequestsClassOne, RequestsClassTwo, RequestsClassThree]
+REQUESTS_CLASSES = [RequestsClassOne, RequestsClassTwo, RequestsClassThree, RequestsClassFour]
 
 
 SHUFERSAL = "שופרסל"
@@ -276,17 +277,16 @@ STORE_CONFIG = {
             "download": "/file/d/"
         },
         "extra_vars": "SuperCofixApp"
-    }
+    },
 
-    # CARREFOUR: {
-    #     "class": REQUESTS_CLASSES[0],
-    #     "base": "https://prices.carrefour.co.il",
-    #     "main_page": "/FileObject/UpdateCategory?",
-    #     "extra_vars": {
-    #         "dropdown_id": "branch_filter",
-    #         "default_item": "סניף"
-    #     }
-    # }
+    CARREFOUR: {
+        "class": REQUESTS_CLASSES[3],
+        "base": "https://prices.carrefour.co.il",
+        "extra_vars": {
+            "dropdown_id": "branch_filter",
+            "default_item": "סניף"
+        }
+    }
 }
 
 MAIN_BAR_FORMAT = "{desc} {percentage:3.0f}% | {bar} | {n_fmt}/{total_fmt}"
