@@ -46,8 +46,10 @@ class RequestsClassFour():
             for option in options:
                 text = (option.text or "").strip()
                 val = option.get("value")
+                
                 if not text or val is None:
                     continue
+                
                 tmp[text] = val
 
             if self.default_pop_item:
@@ -109,6 +111,10 @@ class RequestsClassFour():
 
     def set_branch_single(self, branch_name, catID="PriceFull", sort="Time", sortdir="ASC", request_method="GET"):
         storeId = self.all_branches.get(branch_name)
+        
+        if not storeId:
+            return False
+        
         headers = {
             "User-Agent": "Mozilla/5.0",
             "Referer": self.site_url,

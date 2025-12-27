@@ -9,7 +9,22 @@ cities = {
     "נתניה": None
 }
 
+
 ILLEGAL_FIREBASE_CHARS = {'.', '$', '#', '[', ']', '/'}
+
+# Encode illegal RTDB key characters into safe, readable tokens.
+# Note: We still lower-case in sanitize_key, so this is not a full bijection for all inputs,
+# but it avoids collisions like '.' vs '_' that happen with plain replacement.
+KEY_ENCODE_MAP = {
+    '.': '__dot__',
+    '$': '__dollar__',
+    '#': '__hash__',
+    '[': '__lbracket__',
+    ']': '__rbracket__',
+    '/': '__slash__',
+}
+
+KEY_DECODE_MAP = {v: k for k, v in KEY_ENCODE_MAP.items()}
 
 
 def getCities(abbr=False):
@@ -57,12 +72,11 @@ import re
 def sanitize_key(key: str) -> str:
     if not key:
         return ""
-    
-    name = key.strip()
-    name = name.lower()
-    name = re.sub(r'\s+', ' ', name)
-    
-    for ch in ILLEGAL_FIREBASE_CHARS:
-        name = name.replace(ch, "_")
-        
+
+    name = key.strip().lower()
+    name = re.sub(r"\s+", " ", name)
+
+    for ch, token in KEY_ENCODE_MAP.items():
+        name = name.replace(ch, token)
+
     return name
