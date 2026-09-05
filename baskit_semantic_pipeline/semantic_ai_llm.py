@@ -111,7 +111,13 @@ class OllamaSemanticLLM:
                 f"llama.cpp returned no JSON object: {text!r}"
             )
 
-        payload, _ = decoder.raw_decode(text[start:])
+        try:
+            payload, _ = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError as exc:
+            print("INVALID MODEL CONTENT:")
+            print(repr(text))
+            print("JSON ERROR:", exc)
+            raise
 
         if not isinstance(payload, dict):
             raise ValueError(
@@ -158,14 +164,14 @@ class OllamaSemanticLLM:
             "model": self.config.model,
             "messages": request_messages,
             "temperature": self.config.temperature,
-            "max_tokens": 512,
+            "max_tokens": 160,
             "stream": False,
+            "cache_prompt": True,
+            "chat_template_kwargs": {
+                "enable_thinking": False,
+            },
             "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "semantic_result",
-                    "schema": self._schema(),
-                },
+                "type": "json_object",
             },
         }
 
@@ -185,7 +191,14 @@ class OllamaSemanticLLM:
 
         response.raise_for_status()
 
-        result = response.json()
+        try:
+            result = response.json()
+        except ValueError:
+            print("RAW LLAMA RESPONSE:")
+            print(response.text)
+            print("CONTENT-TYPE:", response.headers.get("Content-Type"))
+            raise
+        
         choices = result.get("choices")
 
         if not choices:
@@ -198,6 +211,13 @@ class OllamaSemanticLLM:
 
         if isinstance(content, str):
             content = content.strip()
+        if isinstance(content, str):
+            if content.startswith("```"):
+                first_newline = content.find("\n")
+                if first_newline != -1:
+                    content = content[first_newline + 1:]
+                if content.endswith("```"):
+                    content = content[:-3].rstrip()
 
         if not content:
             reasoning = message.get("reasoning_content")
@@ -308,7 +328,7 @@ class OllamaSemanticLLM:
             {
                 "role": "user",
                 "content": (
-                    "Parse this supermarket product name.\n\n"
+                    "Return only the JSON object. Do not explain.\n\n"
                     f"Product name: {product_name}"
                 ),
             }
@@ -383,6 +403,7 @@ class OllamaSemanticLLM:
                         for issue in issues
                     )
                     + "\n\n"
+                    + "Return only the JSON object. Do not explain.\n\n"
                     + REPAIR_PROMPT
                 ),
             },

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import traceback
 from pathlib import Path
 
 from semantic_ai import SemanticEngine
@@ -290,6 +291,7 @@ def main():
                         flush=True,
                     )
                 except Exception as exc:
+                    traceback.print_exc()
                     print(
                         "ERROR | "
                         + f"{index}/{len(prepared)} | "
