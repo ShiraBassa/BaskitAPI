@@ -160,10 +160,12 @@ class OllamaSemanticLLM:
             "temperature": self.config.temperature,
             "max_tokens": 512,
             "stream": False,
-            "cache_prompt": True,
             "response_format": {
-                "type": "json_object",
-                "schema": self._schema(),
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "semantic_result",
+                    "schema": self._schema(),
+                },
             },
         }
 

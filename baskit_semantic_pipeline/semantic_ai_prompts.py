@@ -12,16 +12,16 @@ Return ONLY JSON matching the supplied schema.
 
 Understand the COMPLETE product name before creating any segments.
 
-The parser must identify:
+Identify:
 
 * the brand, when present;
 * exactly ONE product segment;
 * zero or more semantic attributes;
 * any source text whose role cannot be determined confidently.
 
-The segmentation is SEMANTIC, not token-based.
+Segmentation is SEMANTIC, not token-based.
 
-Do not decide boundaries merely from:
+Do not determine boundaries merely from:
 
 * word order;
 * adjacency;
@@ -31,7 +31,7 @@ Do not decide boundaries merely from:
 * commercial familiarity;
 * or whether a phrase sounds like a natural noun phrase.
 
-First understand what the complete name means.
+First understand what the complete product name means.
 
 ==================================================
 2. PRODUCT SEGMENT
@@ -39,55 +39,57 @@ First understand what the complete name means.
 
 There must be EXACTLY ONE product segment.
 
-The product segment answers:
+The product answers:
 
 “WHAT IS THE ITEM?”
 
 Identify the COMPLETE CORE PRODUCT IDENTITY.
 
-The product must be the smallest natural phrase that still identifies WHAT KIND OF PRODUCT is being sold.
+The product must be the smallest phrase that completely identifies WHAT KIND OF PRODUCT is being sold.
 
-Do NOT make the product segment unnecessarily descriptive.
+Do NOT make the product unnecessarily descriptive.
 
-After identifying the core product identity, do not extend it merely because additional words:
+After identifying the core product identity, evaluate every remaining phrase independently.
 
-* make the name more specific;
-* are adjacent to it;
-* commonly appear beside it;
-* form a familiar commercial listing;
-* describe a variable characteristic;
-* or make the phrase sound more natural.
+A phrase belongs to product when it defines the fundamental:
 
-However, “minimal” does NOT mean “shortest possible noun”.
+* product type;
+* function;
+* formulation;
+* processing state;
+* subtype;
+* or lexical identity.
 
-A phrase belongs to product when it is genuinely part of the identity of the kind of product being sold.
+A phrase belongs to attribute when:
 
-This includes a functional, formulation, processing, or lexical subtype when that subtype changes or defines WHAT KIND OF PRODUCT the item is.
+* the product is already completely identifiable without it; and
+* the phrase describes something that is TRUE ABOUT that product.
 
-A phrase belongs to attribute when the product is already completely identifiable without it and the phrase describes something that is TRUE ABOUT that product.
+Use this semantic test:
 
-A modifier that merely narrows, describes, or characterizes an already identifiable product must not be absorbed into the product segment just because the resulting multi-word phrase is common, natural-sounding, or commercially recognizable. In particular, when the source contains a general product noun followed by a descriptive subtype/quality/formulation characteristic, first test whether the general product noun already identifies the item being sold; if it does, keep the descriptive phrase separate as an attribute unless that phrase changes the fundamental lexical or functional identity of the product.
+1. Identify the candidate core product.
+2. Remove the additional phrase mentally.
+3. Ask whether the same basic kind of item is still naturally identifiable.
+4. Ask whether the removed phrase defines the fundamental kind, function, formulation, processing state, subtype, or lexical identity.
 
-Use the following semantic test:
+If it independently describes a property OF an already identifiable product -> attribute.
 
-A. Identify the candidate core product.
+If it defines WHAT KIND OF PRODUCT the item fundamentally is -> product.
 
-B. Consider each additional phrase.
+Do not absorb a modifier into product merely because it:
 
-Ask:
+* is adjacent to the product;
+* commonly appears with it;
+* makes the name more specific;
+* forms a familiar commercial phrase;
+* or sounds natural as part of the noun phrase.
 
-1. Does the remaining phrase still naturally identify the same basic kind of item?
-2. Does the removed phrase describe a property, specification, variant, classification, intended user, or other characteristic of that item?
-3. Or does removing the phrase change the fundamental type, function, formulation, or lexical identity of the product?
+Do not remove a phrase from product merely because it is grammatically descriptive.
 
-If the phrase is an independently meaningful characteristic of an already identifiable product -> attribute.
-
-If the phrase defines the fundamental kind, function, formulation, processing state, or lexical identity of the product -> keep it in product.
-
-The semantic meaning takes priority over grammatical removability.
+Semantic meaning takes priority over grammar and word order.
 
 ==================================================
-3. PRODUCT VS ATTRIBUTE: DECISION ORDER
+3. PRODUCT VS ATTRIBUTE DECISION ORDER
 ==================================================
 
 Always reason in this order:
@@ -99,43 +101,34 @@ STEP 2:
 Find the core item being sold.
 
 STEP 3:
-Determine whether any modifier is necessary to identify the fundamental type of that item.
+Determine which words are necessary to identify the fundamental product type.
 
 STEP 4:
-Only then classify remaining modifiers as attributes.
+Classify remaining independently meaningful properties as attributes.
 
-Do NOT reverse this process by first labeling adjectives, nouns, numbers, or prepositional phrases as attributes and then constructing the product from what remains.
+Do NOT first label individual adjectives, nouns, numbers, or prepositional phrases and then construct the product from what remains.
 
-The parser must never create a giant product segment simply because several words form one commercially familiar phrase.
+Do NOT create a giant product segment simply because several words form one commercially familiar phrase.
 
-Conversely, the parser must never fragment a genuine product identity merely because one part looks grammatically descriptive.
+Do NOT fragment a genuine product identity merely because one part looks grammatically descriptive.
 
 ==================================================
 4. FUNCTIONAL / FORMULATION / PROCESSING SUBTYPES
 ==================================================
 
-Some modifiers define the product itself rather than describing a variable property of it.
+Some modifiers define the product itself rather than describing a variable property.
 
-A functional, formulation, processing, or lexical subtype belongs in product when it answers:
+Keep a phrase in product when it answers:
 
 “What KIND of product is this?”
 
-rather than:
+This includes a functional, formulation, processing, subtype, or lexical distinction when that distinction changes or defines WHAT KIND OF PRODUCT the item is.
 
-“What is this product LIKE?”
-
-For example, conceptually:
-
-* a preservation or processing state that defines the product subtype may belong to product;
-* a functional purpose that defines the product type may belong to product;
-* a recognized formulation/type distinction that changes the product identity may belong to product;
-* a lexical subtype that is integral to the product name may belong to product.
+If the product noun already identifies the fundamental item and the phrase only describes a characteristic, separate it as an attribute.
 
 Examples are illustrative only.
 
-Do NOT memorize or special-case individual benchmark examples.
-
-The same semantic reasoning must work on unseen products.
+Do NOT memorize or special-case benchmark examples.
 
 ==================================================
 5. INDEPENDENT ATTRIBUTES
@@ -145,26 +138,26 @@ Once the core product is established, independently meaningful properties must b
 
 Typical attribute categories include:
 
-* flavor
-* scent
-* material
-* color
-* qualitative size
-* numerical size
-* dimensions
-* weight
-* volume
-* quantity
-* percentage
-* intended user
-* gender
-* audience
-* variant
-* ingredient/formulation characteristic
-* packaging
-* unit count
-* shape
-* stage
+* flavor;
+* scent;
+* material;
+* color;
+* qualitative size;
+* numerical size;
+* dimensions;
+* weight;
+* volume;
+* quantity;
+* percentage;
+* intended user;
+* gender;
+* audience;
+* variant;
+* ingredient/formulation characteristic;
+* packaging;
+* unit count;
+* shape;
+* stage;
 * and other independently meaningful specifications.
 
 A descriptor should NOT be placed in product merely because it is descriptive and adjacent to the product.
@@ -183,23 +176,19 @@ B. an ingredient, component, formulation, or variant of the product.
 
 If it describes the physical material of the item -> חומר.
 
-If it identifies a formulation/type/variant of the product -> normally סוג, when סוג is the appropriate semantic kind.
+If it identifies a formulation/type/variant -> normally סוג, when appropriate.
 
 If it is part of the fundamental product identity -> it may remain in product.
 
 Do not classify a substance as חומר merely because it is a noun naming a substance.
 
-For example, the semantic distinction is between:
+The distinction is semantic:
 
-“what is this object made of?”
+“what is this object made from?”
 
-and:
+versus:
 
 “what formulation/type/version of this product is this?”
-
-Apply this generally.
-
-Do not hard-code individual ingredients or benchmark phrases.
 
 ==================================================
 7. INTENDED USER / GENDER / AUDIENCE
@@ -211,16 +200,13 @@ Do NOT automatically put intended-user or gender wording into product.
 
 If the product is already completely identifiable without the phrase and the phrase distinguishes which version is being sold -> attribute.
 
-Use סוג when the phrase functions as a product classification or variant, including an independently expressed women/men/user distinction.
+Use קהל יעד when the phrase genuinely describes the target audience as an audience.
 
-Use קהל יעד only when the phrase genuinely describes the target audience as an audience.
+Use סוג when the phrase functions as a product classification or variant/type.
 
-If the wording is genuinely integrated into the functional identity of the product and removing it changes the fundamental product type, it may remain in product.
+If the wording genuinely defines the fundamental functional product identity, it may remain in product.
 
 Do not decide this from fixed word rules.
-
-Target-audience distinction: when wording identifies who the product is intended for (for example, a gender/user group) rather than what the product fundamentally is, classify that complete phrase as קהל יעד. Do not put it into product merely because it is grammatically attached to the product.
-
 
 ==================================================
 8. MULTI-WORD ATTRIBUTES
@@ -228,28 +214,29 @@ Target-audience distinction: when wording identifies who the product is intended
 
 When several consecutive words jointly express ONE semantic property, keep them together as ONE attribute.
 
-This applies to complete quantity/unit-count expressions as well: if several consecutive tokens jointly communicate one count of included units, preserve the entire expression as the single מספר יחידות attribute rather than splitting punctuation, symbols, or the unit-count word into separate segments.
-
 Do not split an attribute into individual words.
+
+This applies to:
+
+* flavor expressions;
+* scent expressions;
+* material expressions;
+* formulation/type expressions;
+* intended-user expressions;
+* and other unified semantic properties.
 
 A grammatical connector or preposition belongs to the attribute when it introduces the semantic value of that attribute.
 
-For example, conceptually:
-
-* a complete scent construction -> ONE ריח attribute;
-* a complete flavor construction -> ONE טעם attribute;
-* a complete material construction -> ONE חומר attribute;
-* a complete formulation/type construction -> ONE סוג attribute;
-* a complete intended-user/classification construction -> ONE attribute.
-
-The attribute boundary must surround the COMPLETE semantic expression.
+For example, when a complete construction expresses one scent, flavor, material, type, audience, or other property, preserve the COMPLETE construction as one attribute.
 
 Do not split a phrase merely because:
 
 * it contains a preposition;
 * it contains a connector;
 * multiple words could individually be descriptive;
-* or the phrase can be grammatically divided.
+* or it can be grammatically divided.
+
+Unit-count expressions follow the same rule: when several consecutive tokens jointly communicate one count of included units, preserve the complete expression as ONE מספר יחידות attribute.
 
 ==================================================
 9. MEASUREMENTS
@@ -299,7 +286,9 @@ Use מידה for an explicit numerical size or physical dimension.
 
 The semantic meaning of the complete expression determines the kind.
 
-A number does not automatically mean מידה, and an adjective does not automatically mean גודל.
+A number does not automatically mean מידה.
+
+An adjective does not automatically mean גודל.
 
 ==================================================
 11. PACKAGING VS UNIT COUNT
@@ -316,7 +305,7 @@ This includes:
 * larger multipacks;
 * equivalent unit-count expressions.
 
-Use אריזה when the expression independently describes the packaging or packaging configuration.
+Use אריזה when the expression independently describes packaging or packaging configuration.
 
 Do NOT use כמות אריזה.
 
@@ -330,9 +319,13 @@ Classify semantic taste/flavor expressions as טעם.
 
 Classify semantic scent/fragrance expressions as ריח.
 
-Preserve the complete source expression as one attribute when multiple words jointly express the flavor or scent.
+Preserve the complete source expression as ONE attribute when multiple words jointly express the flavor or scent.
 
-Do not rely only on explicit words such as “בטעם”, “בניחוח”, or “בריח”.
+Do not rely only on explicit words such as:
+
+* בטעם
+* בניחוח
+* בריח
 
 Determine whether the phrase semantically describes flavor or scent.
 
@@ -363,8 +356,8 @@ Prefer these canonical Hebrew kinds whenever they semantically fit:
 * שלב
 
 Choose the kind from the MEANING of the complete attribute.
-For visual appearance/color descriptors, use צבע when the expression describes the product's visible color or color-like appearance. This includes transparent/clear appearance when it functions as the item's visual color classification.
 
+For visual appearance/color descriptors, use צבע when the expression describes the product's visible color or color-like appearance. This includes transparent/clear appearance when it functions as the item's visual color classification.
 
 Do not choose a kind merely because of surface wording.
 
@@ -456,11 +449,9 @@ Do NOT:
 
 The segment text must be an exact substring of the original source.
 
-After segmentation, internally verify:
+Before returning, internally verify:
 
 CONCATENATE(all segment.text in order) == original source
-
-This must be true before returning the result.
 
 ==================================================
 17. STRUCTURAL REQUIREMENTS
@@ -496,7 +487,7 @@ Do not split a genuine semantic unit merely to satisfy an attribute count.
 18. FINAL SEMANTIC CHECK
 ==================================================
 
-Before returning JSON, verify all of the following:
+Before returning JSON, verify:
 
 1. There is exactly one product segment.
 2. The product identifies the complete core kind of item.
@@ -504,8 +495,8 @@ Before returning JSON, verify all of the following:
 4. A modifier that independently describes an already identifiable product is an attribute.
 5. A modifier that defines the fundamental functional/type/formulation/processing/lexical identity remains in product.
 6. Material is separated when it describes the physical material of the item.
-7. Ingredient/formulation characteristics are classified by semantic function rather than automatically as material.
-8. Intended-user/gender wording is evaluated semantically rather than by fixed word rules.
+7. Ingredient/formulation characteristics are classified by semantic function rather than automatically as חומר.
+8. Intended-user/gender wording is evaluated semantically.
 9. Multi-word attributes remain intact.
 10. Connectors and prepositions remain with the semantic attribute they introduce.
 11. mL/L product quantities use כמות.
@@ -520,8 +511,6 @@ Before returning JSON, verify all of the following:
 20. Concatenating all segment text reproduces the original source exactly.
 
 Do not memorize or special-case benchmark examples.
-
-Apply the semantic principles consistently to unseen products.
 
 Python validation must enforce ONLY structural and source-safety constraints.
 
@@ -538,6 +527,7 @@ Python validation MUST NOT contain:
 
 Semantic understanding belongs to the model.
 """
+
 
 REPAIR_PROMPT = r"""
 The previous semantic parse failed validation.
@@ -575,7 +565,7 @@ Then evaluate every remaining phrase semantically.
 2. PRODUCT BOUNDARY
 ==================================================
 
-The product must be the smallest natural phrase that completely identifies WHAT KIND OF PRODUCT is being sold.
+The product must be the smallest phrase that completely identifies WHAT KIND OF PRODUCT is being sold.
 
 Do NOT make it a maximally descriptive noun phrase.
 
@@ -600,8 +590,6 @@ A phrase remains in product when it defines the fundamental:
 
 A phrase becomes an attribute when the product is already complete without it and the phrase independently describes a property, specification, variant, classification, intended user, or other characteristic.
 
-A modifier that merely narrows, describes, or characterizes an already identifiable product must not be absorbed into the product segment just because the resulting phrase is common, natural-sounding, or commercially recognizable. When a general product noun already identifies the item, keep a following descriptive subtype/quality/formulation characteristic separate unless it changes the fundamental lexical or functional identity of the product.
-
 Use BOTH questions:
 
 1. Does removing this phrase leave the same basic kind of item naturally identifiable?
@@ -621,25 +609,25 @@ After identifying the product, independently evaluate remaining meaningful phras
 
 Common independent attributes include:
 
-* flavor
-* scent
-* material
-* color
-* size
-* dimensions
-* weight
-* volume
-* quantity
-* percentage
-* intended user
-* gender
-* audience
-* variant
-* ingredient/formulation characteristic
-* packaging
-* unit count
-* shape
-* stage
+* flavor;
+* scent;
+* material;
+* color;
+* size;
+* dimensions;
+* weight;
+* volume;
+* quantity;
+* percentage;
+* intended user;
+* gender;
+* audience;
+* variant;
+* ingredient/formulation characteristic;
+* packaging;
+* unit count;
+* shape;
+* stage;
 * and similar specifications.
 
 Do not automatically classify a modifier as an attribute.
@@ -652,7 +640,7 @@ Determine its semantic role from the complete name.
 4. FUNCTIONAL / FORMULATION SUBTYPES
 ==================================================
 
-If a phrase defines the functional, formulation, processing, or lexical type of the product itself, keep it in product.
+If a phrase defines the functional, formulation, processing, subtype, or lexical type of the product itself, keep it in product.
 
 If it merely describes a variable characteristic of an already complete product, separate it as an attribute.
 
@@ -668,9 +656,9 @@ Evaluate intended-user, gender, and audience wording semantically.
 
 If the product is already complete without the phrase and the phrase distinguishes the product version -> attribute.
 
-Use סוג when it classifies the product version/type.
+Use קהל יעד when it genuinely describes the target audience.
 
-Use קהל יעד only when it genuinely describes the target audience.
+Use סוג when it classifies the product version/type.
 
 If the wording is genuinely part of the fundamental functional product identity, it may remain in product.
 
@@ -696,8 +684,6 @@ Determine this from semantic function.
 
 Keep consecutive words together when they jointly express ONE semantic property.
 
-This also applies to unit-count expressions: when several consecutive tokens jointly communicate one count of included units, preserve the complete expression as one מספר יחידות attribute, including any punctuation or symbol that belongs to that expression.
-
 Do not split:
 
 * flavor expressions;
@@ -708,6 +694,8 @@ Do not split:
 * or any other unified semantic attribute.
 
 A connector or preposition stays with the phrase it introduces when the complete construction expresses one property.
+
+Unit-count expressions are also kept intact: when several consecutive tokens jointly communicate one count of included units, preserve the complete expression as ONE מספר יחידות attribute, including punctuation or symbols belonging to that expression.
 
 Segmentation is semantic, not token-based.
 
@@ -804,7 +792,14 @@ Segments must:
 * never omit text;
 * never invent text.
 
-Do not translate, normalize, rewrite, correct, reorder, or otherwise alter source text.
+Do not:
+
+* translate;
+* normalize;
+* rewrite;
+* correct;
+* reorder;
+* or alter source text.
 
 Internally verify:
 
