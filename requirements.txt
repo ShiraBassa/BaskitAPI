@@ -1,0 +1,8 @@
+Flask
+Flask-Compress
+firebase-admin
+beautifulsoup4
+requests
+python-dotenv
+gunicorn==21.2.0
+tqdm>=4.66.0

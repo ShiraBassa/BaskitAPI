@@ -1,0 +1,26 @@
+{
+  "base_model": "Qwen/Qwen3-14B-MLX-4bit",
+  "training_records": 4580,
+  "validation_records": 20,
+  "locked_benchmark_records": 20,
+  "v4_records": 4500,
+  "audited_gold_records": 129,
+  "gold_training_records": 80,
+  "exact_v4_gold_collisions": 9,
+  "benchmark_excluded_from_training": true,
+  "validation_excluded_from_training": true,
+  "seed": 42,
+  "loader_test_records": 1,
+  "recommended_training": {
+    "batch_size": 1,
+    "iters": 1500,
+    "learning_rate": 1e-05,
+    "num_layers": 4,
+    "max_seq_length": 1024,
+    "grad_checkpoint": true,
+    "mask_prompt": true,
+    "lora_rank": 8,
+    "lora_scale": 20.0,
+    "lora_dropout": 0.0
+  }
+}

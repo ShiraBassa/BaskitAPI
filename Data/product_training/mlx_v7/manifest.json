@@ -1,0 +1,24 @@
+{
+  "source": "baskit_semantic_supermarket_dataset_v4.jsonl",
+  "records": 4500,
+  "train": 4050,
+  "valid": 450,
+  "test": 0,
+  "shuffle_seed": 0,
+  "format": "MLX-LM messages",
+  "system_prompt": "exact V5 training prompt",
+  "intended_config": {
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "fine_tune_type": "lora",
+    "batch_size": 1,
+    "iters": 400,
+    "learning_rate": 1e-05,
+    "num_layers": 8,
+    "mask_prompt": true,
+    "lora_rank": 8,
+    "lora_scale": 20.0,
+    "lora_dropout": 0.0,
+    "max_seq_length": 2048,
+    "seed": 0
+  }
+}
