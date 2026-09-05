@@ -2,3 +2,4 @@
 .DS_Store
 data.env
 baskit_semantic_pipeline/__pycache__/
+baskit_semantic_pipeline/benchmark_results.jsonl
