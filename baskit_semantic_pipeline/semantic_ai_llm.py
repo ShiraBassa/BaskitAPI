@@ -6,7 +6,7 @@ from typing import Any
 import requests
 
 from semantic_ai_config import SemanticConfig
-from semantic_ai_prompts import SYSTEM_PROMPT, REPAIR_PROMPT
+from semantic_ai_prompts import SYSTEM_PROMPT, REPAIR_PROMPT, VERIFY_PROMPT
 from semantic_ai_schema import SemanticResult
 
 
@@ -142,8 +142,6 @@ class OllamaSemanticLLM:
     def _chat(
         self,
         messages: list[dict[str, str]],
-        *,
-        initialize_system: bool = False,
     ) -> str:
         """
         Send a chat request.
@@ -247,6 +245,9 @@ class OllamaSemanticLLM:
 
         normalized_segments = []
 
+        # Standalone punctuation markers are unclassified semantic tokens.
+        # Keep them as separate segments; do not merge them into neighboring text.
+
         for segment in segments:
             if not isinstance(segment, dict):
                 normalized_segments.append(segment)
@@ -343,6 +344,29 @@ class OllamaSemanticLLM:
 
         return SemanticResult.model_validate(payload)
 
+
+    def verify(
+        self,
+        product_name: str,
+        current: SemanticResult,
+    ) -> SemanticResult:
+        """Independently review semantic correctness, not just structure."""
+        messages = [{
+            "role": "user",
+            "content": (
+                f"Product name: {product_name}\n\n"
+                "Current output:\n"
+                f"{current.model_dump_json(ensure_ascii=False)}\n\n"
+                + VERIFY_PROMPT
+            ),
+        }]
+        content = self._chat(messages)
+        payload = self._normalize_model_output(
+            self._parse_json_content(content),
+            product_name,
+        )
+        return SemanticResult.model_validate(payload)
+
     def parse_many(
         self,
         product_names: list[str],
@@ -353,7 +377,7 @@ class OllamaSemanticLLM:
 
         Each product gets its own examples.
 
-        The system prompt is initialized only once, on the first product.
+        The system prompt is sent independently with every request.
         """
 
         if not product_names:
@@ -417,4 +441,3 @@ class OllamaSemanticLLM:
         )
 
         return SemanticResult.model_validate(payload)
-

@@ -12,6 +12,7 @@ class SemanticConfig:
     model: str = os.getenv("BASKIT_MODEL", "qwen3.5:9b")
     temperature: float = float(os.getenv("BASKIT_TEMPERATURE", "0.01"))
     repair_attempts: int = int(os.getenv("BASKIT_REPAIR_ATTEMPTS", "1"))
+    verification_attempts: int = int(os.getenv("BASKIT_VERIFICATION_ATTEMPTS", "1"))
     max_examples: int = int(os.getenv("BASKIT_MAX_EXAMPLES", "4"))
     request_timeout: float = float(os.getenv("BASKIT_REQUEST_TIMEOUT", "120"))
     training_examples_path: str = os.getenv(

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from semantic_ai import SemanticEngine
 from semantic_ai_prompts import SYSTEM_PROMPT
+from semantic_ai_examples import load_example_texts
 
 
 def load_jsonl(path: Path):
@@ -262,7 +263,18 @@ def main():
         text, gold = normalize_gold(record)
         prepared.append((line_no, text, gold))
 
-    engine = SemanticEngine()
+    # Hold-out isolation: never allow an exact benchmark/check product to
+    # appear in the few-shot examples. This is data isolation, not semantic
+    # hard-coding, and applies to every benchmark item automatically.
+    benchmark_texts = {text for _, text, _ in prepared}
+    training_texts = load_example_texts()
+    leaked = sorted(benchmark_texts & training_texts)
+    if leaked:
+        raise RuntimeError(
+            "Exact product leakage detected between benchmark checks and "
+            f"training examples: {leaked!r}"
+        )
+    engine = SemanticEngine(excluded_example_texts=benchmark_texts)
     passed = 0
 
     with open(args.output, "w", encoding="utf-8") as out:
@@ -316,6 +328,16 @@ def main():
         for line_no, text, gold, result_dict in results:
             ok = result_dict.get("valid", False) and exact_match(result_dict, gold)
             passed += int(ok)
+
+            if not ok:
+                print("  GOLD :", json.dumps(gold, ensure_ascii=False))
+                print(
+                    "  PRED :",
+                    json.dumps(
+                        {"segments": result_dict.get("segments", [])},
+                        ensure_ascii=False,
+                    ),
+                )
 
             row = {
                 "line": line_no,

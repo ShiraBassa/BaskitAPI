@@ -14,9 +14,14 @@ class SemanticEngine:
     Validation performs structural/safety checks.
     """
 
-    def __init__(self, config: SemanticConfig = CONFIG):
+    def __init__(
+        self,
+        config: SemanticConfig = CONFIG,
+        excluded_example_texts: set[str] | None = None,
+    ):
         self.config = config
         self.llm = OllamaSemanticLLM(config)
+        self.excluded_example_texts = set(excluded_example_texts or set())
 
     def _get_few_shot_examples(self, product_name: str) -> list[dict[str, str]]:
         if self.config.max_examples <= 0:
@@ -25,11 +30,22 @@ class SemanticEngine:
             max_examples=self.config.max_examples,
             target_text=product_name,
             examples_path=self.config.training_examples_path,
+            excluded_texts=self.excluded_example_texts,
         )
 
     def parse(self, product_name: str) -> dict:
         examples = self._get_few_shot_examples(product_name)
         result = self.llm.parse(product_name, examples=examples)
+
+        # A structurally valid result can still be semantically wrong.
+        # Independently review it before the structural repair loop.
+        for _ in range(self.config.verification_attempts):
+            verified = self.llm.verify(product_name, result)
+            verified_issues = validate_semantics(product_name, verified)
+            result = verified
+            if not verified_issues:
+                break
+
         issues = validate_semantics(product_name, result)
 
         for _ in range(self.config.repair_attempts):
