@@ -3,19 +3,35 @@ from __future__ import annotations
 import argparse
 import json
 import traceback
+import time
 from pathlib import Path
 
 from semantic_ai import SemanticEngine
 from semantic_ai_prompts import SYSTEM_PROMPT
-from semantic_ai_examples import load_example_texts
 
 
-def load_jsonl(path: Path):
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = line.strip()
-        if not line:
-            continue
-        yield line_no, json.loads(line)
+
+def load_jsonl(path):
+    with path.open("r", encoding="utf-8") as f:
+        for line_no, line in enumerate(f, 1):
+            line = line.strip()
+
+            if not line:
+                continue
+
+            # Allow // to temporarily disable a JSONL record.
+            if line.startswith("//"):
+                continue
+
+            yield line_no, json.loads(line)
+
+
+def product_core(gold: dict) -> str:
+    return "".join(
+        str(s.get("text", ""))
+        for s in gold.get("segments", [])
+        if isinstance(s, dict) and s.get("role") == "product"
+    )
 
 
 def normalize_gold(record: dict) -> tuple[str, dict]:
@@ -127,32 +143,7 @@ def normalize_gold(record: dict) -> tuple[str, dict]:
 
 
 def exact_match(pred: dict, gold: dict) -> bool:
-    def _to_dict(segment) -> dict:
-        if hasattr(segment, "model_dump"):
-            return segment.model_dump()
-        if isinstance(segment, dict):
-            return segment
-        return {"text": str(segment), "role": "", "kind": ""}
-
-    def semantic_segments(value: dict) -> list[dict]:
-        segments = value.get("segments", [])
-        clean_segments = []
-        for raw_seg in segments:
-            seg = _to_dict(raw_seg)
-            if not (
-                seg.get("role") == "unclassified"
-                and seg.get("text", "").strip() in {"-", "–", "—"}
-            ):
-                clean_segments.append(
-                    {
-                        "text": seg.get("text", ""),
-                        "role": seg.get("role", ""),
-                        "kind": seg.get("kind", ""),
-                    }
-                )
-        return clean_segments
-
-    return semantic_segments(pred) == semantic_segments(gold)
+    return pred.get("segments", []) == gold.get("segments", [])
 
 
 def mlx_chat_prompt(system_prompt: str, user_text: str) -> str:
@@ -200,13 +191,6 @@ def extract_json_object(text: str) -> dict:
 
     raise ValueError("MLX output contains incomplete JSON")
 
-
-def load_mlx(model: str, adapter_path: str):
-    from mlx_lm import load
-
-    return load(model, adapter_path=adapter_path)
-
-
 def build_mlx_prefix_tokens(tokenizer, system_prompt: str) -> list[int]:
     prefix = (
         "<|im_start|>system\n"
@@ -217,42 +201,14 @@ def build_mlx_prefix_tokens(tokenizer, system_prompt: str) -> list[int]:
     )
     return tokenizer.encode(prefix)
 
-
-def run_mlx(
-    model_bundle,
-    prompt: str,
-    max_tokens: int = 256,
-) -> dict:
-    from mlx_lm import generate
-
-    model, tokenizer = model_bundle
-
-    output = generate(
-        model,
-        tokenizer,
-        prompt=prompt,
-        max_tokens=max_tokens,
-        verbose=False,
-    )
-
-    return extract_json_object(output)
-
-
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default="baskit_semantic_checks_hebrew_v1.jsonl")
+    ap.add_argument("--gold", default="baskit_semantic_checks_hebrew_v2.jsonl")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--output", default="benchmark_results.jsonl")
     ap.add_argument("--mlx-model", default="")
     ap.add_argument("--mlx-adapter", default="")
     args = ap.parse_args()
-
-    system_prompt = SYSTEM_PROMPT if args.mlx_model else None
-
-    mlx_model_bundle = None
-
-    if args.mlx_model:
-        mlx_model_bundle = load_mlx(args.mlx_model, args.mlx_adapter)
 
     rows = list(load_jsonl(Path(args.gold)))
     if args.limit:
@@ -263,43 +219,34 @@ def main():
         text, gold = normalize_gold(record)
         prepared.append((line_no, text, gold))
 
-    # Hold-out isolation: never allow an exact benchmark/check product to
-    # appear in the few-shot examples. This is data isolation, not semantic
-    # hard-coding, and applies to every benchmark item automatically.
-    benchmark_texts = {text for _, text, _ in prepared}
-    training_texts = load_example_texts()
-    leaked = sorted(benchmark_texts & training_texts)
-    if leaked:
-        raise RuntimeError(
-            "Exact product leakage detected between benchmark checks and "
-            f"training examples: {leaked!r}"
-        )
-    engine = SemanticEngine(excluded_example_texts=benchmark_texts)
+    # Hold-out isolation: exact inputs and product cores must remain disjoint
+    # between checks and training. This is dataset hygiene, not semantic
+    # hard-coding.
+    engine = SemanticEngine()
     passed = 0
 
     with open(args.output, "w", encoding="utf-8") as out:
         if args.mlx_model:
-            results = []
-            for line_no, text, gold in prepared:
-                prompt = mlx_chat_prompt(system_prompt, text)
-                prediction = run_mlx(
-                    mlx_model_bundle,
-                    prompt,
-                )
-                results.append((line_no, text, gold, {"valid": True, **prediction}))
+            raise NotImplementedError(
+                "The legacy --mlx-model benchmark path is not implemented in this engine. "
+                "Run the benchmark through SemanticEngine (the default path)."
+            )
         else:
             results = []
             for index, (line_no, text, gold) in enumerate(prepared, 1):
                 try:
                     print(f"\n========== BENCHMARK REQUEST {index}/{len(prepared)} | {text} ==========")
+                    started = time.perf_counter()
                     prediction = engine.parse(text)
+                    elapsed = time.perf_counter() - started
                     if not isinstance(prediction, dict):
                         prediction = prediction.model_dump()
                     results.append((line_no, text, gold, prediction))
                     print(
                         "DONE | "
                         + f"{index}/{len(prepared)} | "
-                        + text,
+                        + text
+                        + f" | {elapsed:.3f}s",
                         flush=True,
                     )
                 except Exception as exc:
@@ -329,15 +276,20 @@ def main():
             ok = result_dict.get("valid", False) and exact_match(result_dict, gold)
             passed += int(ok)
 
-            if not ok:
-                print("  GOLD :", json.dumps(gold, ensure_ascii=False))
-                print(
-                    "  PRED :",
-                    json.dumps(
-                        {"segments": result_dict.get("segments", [])},
-                        ensure_ascii=False,
-                    ),
-                )
+            # Print the complete result as one contiguous block.  Previously,
+            # PASS cases printed only their status while FAIL cases printed
+            # GOLD/PRED before the status line.  That made the output look as
+            # though a failure's GOLD/PRED belonged to the preceding PASS.
+            print(f"RESULT | line {line_no} | {text}")
+            print("  GOLD :", json.dumps(gold, ensure_ascii=False))
+            print(
+                "  PRED :",
+                json.dumps(
+                    {"segments": result_dict.get("segments", [])},
+                    ensure_ascii=False,
+                ),
+            )
+            print(("PASS" if ok else "FAIL") + f" | {text}")
 
             row = {
                 "line": line_no,

@@ -3,78 +3,88 @@ from __future__ import annotations
 from semantic_ai_schema import SemanticResult
 
 
+VALID_KINDS = {
+    "כמות", "מספר יחידות", "אחוז שומן", "טעם", "ריח",
+    "צבע", "חומר", "גודל", "מידה", "קהל יעד", "צורה", "סוג",
+}
+
+
 class ValidationIssue(ValueError):
     pass
 
 
-def _find_all_non_overlapping_occurrences(source: str, text: str) -> list[tuple[int, int]]:
-    out = []
-    if not text:
-        return out
-    start = 0
-    while True:
-        i = source.find(text, start)
-        if i < 0:
-            return out
-        out.append((i, i + len(text)))
-        start = i + len(text)
-
-
 def validate_semantics(source: str, result: SemanticResult) -> list[str]:
+    """Validate structure and source coverage without semantic hard-coding."""
     issues: list[str] = []
 
-    if not source.strip():
-        issues.append("source text is empty")
+    if not isinstance(source, str) or not source.strip():
+        return ["source text is empty"]
+
+    if result.text != source:
+        issues.append("result.text does not exactly equal source text")
+
+    if not result.segments:
+        issues.append("result must contain at least one segment")
         return issues
 
     products = [s for s in result.segments if s.role == "product"]
-    if not result.segments:
-        issues.append("result must contain at least one segment")
     if len(products) != 1:
         issues.append(f"expected exactly one product segment, got {len(products)}")
 
-    for idx, seg in enumerate(result.segments):
-        if seg.role != "attribute" and seg.kind:
-            issues.append(
-                f"segment {idx} has kind={seg.kind!r} but role={seg.role!r}; "
-                "kind must be empty for non-attributes"
-            )
+    cursor = 0
 
-        if seg.role == "attribute":
+    for idx, seg in enumerate(result.segments):
+        text = seg.text.strip()
+
+        if not text:
+            issues.append(f"segment {idx} text is empty")
+            continue
+
+        # Semantic output may intentionally omit purely grammatical/relational
+        # carrier words. Therefore a segment does not have to begin immediately
+        # after the previous segment. It must, however, be an exact source
+        # substring appearing after the previous segment, preserving order.
+        pos = source.find(text, cursor)
+        if pos < 0:
+            issues.append(
+                f"segment {idx} text is not an exact source substring after "
+                f"the previous segment"
+            )
+        else:
+            end_pos = pos + len(text)
+
+            # A semantic segment must not end halfway through a source token.
+            # This is especially important for measurements/units, where a
+            # model can otherwise return a valid substring that silently drops
+            # the remainder of the unit. This is generic source integrity, not
+            # a unit dictionary or product-specific rule.
+            if end_pos < len(source) and not source[end_pos].isspace():
+                issues.append(
+                    f"segment {idx} ends inside a source token; "
+                    "the complete contiguous source token must be preserved"
+                )
+
+            cursor = end_pos
+
+        if seg.role != "attribute":
+            if seg.kind:
+                issues.append(
+                    f"segment {idx} has kind={seg.kind!r} but role={seg.role!r}; "
+                    "kind must be empty for non-attributes"
+                )
+        else:
             kind = seg.kind.strip()
             if not kind:
                 issues.append(f"segment {idx} attribute kind is empty")
-            elif kind.lower() in {"undefined", "unknown", "null"}:
-                issues.append(f"segment {idx} attribute kind {seg.kind!r} is not allowed")
-            elif not any("\u0590" <= char <= "\u05FF" for char in kind):
-                issues.append(f"segment {idx} attribute kind {seg.kind!r} must be Hebrew")
-            elif any("A" <= char <= "Z" or "a" <= char <= "z" for char in kind):
-                issues.append(f"segment {idx} attribute kind {seg.kind!r} must not contain English letters")
+            elif kind not in VALID_KINDS:
+                issues.append(
+                    f"segment {idx} attribute kind {kind!r} is not in the taxonomy"
+                )
 
-        if seg.role == "unclassified" and seg.text.strip() in {"-", "–", "—"}:
-            if not seg.text.strip():
-                issues.append(f"segment {idx} separator text is empty")
-
-        occurrences = _find_all_non_overlapping_occurrences(source, seg.text)
-        if not occurrences:
-            issues.append(
-                f"segment {idx} text {seg.text!r} does not occur directly in source"
-            )
-
-    spans: list[tuple[int, int, int]] = []
-    cursor = 0
-    for idx, seg in enumerate(result.segments):
-        pos = source.find(seg.text, cursor)
-        if pos < 0:
-            if seg.text in source:
-                issues.append(f"segment {idx} text {seg.text!r} appears out of order in source")
-            continue
-        spans.append((pos, pos + len(seg.text), idx))
-        cursor = pos + len(seg.text)
-
-    for (a0, a1, ai), (b0, b1, bi) in zip(spans, spans[1:]):
-        if b0 < a1:
-            issues.append(f"segments {ai} and {bi} overlap")
+    # Gaps are permitted only because the semantic representation may omit
+    # semantically empty relational carriers. The LLM is responsible for deciding
+    # whether a gap is genuinely empty; validation checks source grounding/order,
+    # not vocabulary-specific semantics.
 
     return issues
 
