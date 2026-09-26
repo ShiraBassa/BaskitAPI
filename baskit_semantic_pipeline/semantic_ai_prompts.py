@@ -1,9 +1,20 @@
-"""Semantic instructions for Baskit Hebrew retail-product segmentation.
+"""Baskit semantic prompt — compact structural version of the 106/106 baseline.
 
-The examples in this file are semantic calibration examples, not rules, dictionaries,
-or exceptions. The model must transfer the reasoning to unseen products.
+This is a behavior-preserving compression pass.
+Only dead historical/duplicate blocks that were not referenced by any active
+runtime prompt were removed. The active prompt contents and their ordering are
+otherwise preserved.
+
+Runtime sections:
+1. ONTOLOGY
+2. IDENTITY_CONTRACT
+3. SEMANTIC_REASONING_CALIBRATION
+4. SYSTEM_PROMPT
+5. BOUNDARY_JUDGE_SYSTEM_PROMPT / JUDGE_SYSTEM_PROMPT
+6. PARSE_INSTRUCTION
+7. REPAIR_PROMPT
+8. VERIFY_PROMPT
 """
-
 ONTOLOGY = """
 ATTRIBUTE TAXONOMY:
 - כמות: physical amount/measurement with its unit (e.g. weight, volume, length).
@@ -37,7 +48,6 @@ ATTRIBUTE TAXONOMY:
   medium, packaging style, etc. This includes generic scented/perfumed formulation
   descriptions when no specific scent is identified.
 """
-
 IDENTITY_CONTRACT = r"""
 BASKIT SEMANTIC IDENTITY CONTRACT
 
@@ -666,6 +676,33 @@ to know what physical/commercial thing the shopper means, keep it in PRODUCT.
 The fact that the first noun can be used as shorthand does not automatically make
 it complete.
 
+AUDIENCE-LIKE WORDS CAN BE PRODUCT-DEFINING
+A word that looks like a target audience is not automatically a קהל יעד attribute.
+First decide whether it describes WHO receives/uses an already identified product,
+or whether it participates in naming a distinct commercial product concept.
+
+- If the base product is already concrete and the phrase only says who it is for,
+  classify the audience phrase as קהל יעד.
+- If the base is generic and the audience concept combines with it to establish a
+  distinct product category/concept, keep the whole compound in PRODUCT.
+
+The distinction is semantic, not grammatical:
+    generic product + recipient qualifier -> PRODUCT + קהל יעד
+    incomplete/generic head + audience-defining concept -> PRODUCT compound
+
+Do not decide from the presence of an audience-looking word or preposition.
+Ask whether the added concept merely identifies the recipient of the same product,
+or changes WHAT commercial product/category the shopper is asking for.
+
+Contrastive reasoning:
+- שמן תינוקות -> a distinct baby-oil product concept; PRODUCT = שמן תינוקות.
+- חיתולים לתינוקות -> diapers are already the product; לתינוקות identifies the
+  intended audience; PRODUCT = חיתולים, ATTRIBUTE = לתינוקות / קהל יעד.
+- חטיף לכלבים -> dog treat is the concrete product category; PRODUCT = חטיף לכלבים.
+
+These are calibration contrasts, not phrase exceptions. Generalize the same
+referent test to unseen audience-like compounds.
+
 STEP 7 — SEMANTIC CARRIERS VS. ATTRIBUTE VALUES
 Once PRODUCT is fixed, identify what information each remaining expression
 actually contributes.
@@ -767,7 +804,6 @@ in source order. Then inspect any source words left between segments:
 Never omit a word merely because it is short or common. Omit it only when its
 semantic contribution is genuinely empty after the surrounding value is identified.
 """
-
 SEMANTIC_REASONING_CALIBRATION = """
 SEMANTIC REASONING CALIBRATION — HEAD, CATEGORY, DIMENSION, VALUE
 
@@ -920,133 +956,12 @@ A useful final question is:
 If yes -> ATTRIBUTE.
 If no because the modifier establishes a different category of thing -> PRODUCT.
 """
-
-V35_SEMANTIC_ERROR_CALIBRATION = r"""
-V35 SEMANTIC ERROR CALIBRATION — GENERAL REASONING, NOT LEXICAL EXCEPTIONS
-
-These distinctions exist because a model may know the ontology words but still
-choose the wrong semantic interpretation. Resolve the construction first, then
-classify the remaining semantic value.
-
-1. RELATION BEFORE ONTOLOGY
----------------------------
-Do NOT infer an attribute kind from what a word can mean in isolation.
-
-For a construction such as "BASE עם X", first determine the relation created by
-"עם":
-- If X is an included component, ingredient, addition, or configuration of BASE,
-  X is סוג.
-- If the construction explicitly states the sensory flavor of BASE, X is טעם.
-
-Contrast:
-    קפה עם הל
-    -> הל is an included component/configuration -> סוג
-
-    קפה בטעם הל
-    -> הל is explicitly the flavor -> טעם
-
-The fact that X is edible or can be tasted is NOT evidence that X is טעם.
-
-2. GENERIC PROPERTY VS EXPLICIT VALUE
--------------------------------------
-Resolve redundancy before emitting segments.
-
-A generic descriptor can merely announce that a dimension exists. If a later
-explicit value identifies the actual value of that same dimension, the generic
-descriptor contributes no additional requested information and must be omitted.
-
-Example:
-    נר ריחני לבנדר
-    -> ריחני only announces that the candle has a scent
-    -> לבנדר identifies the actual scent
-    -> omit ריחני
-    -> לבנדר = ריח
-
-Do not keep both merely because the generic descriptor is independently
-classifiable.
-
-3. CATEGORY COMPLETION VS ATTRIBUTE
-------------------------------------
-Do not freeze PRODUCT at the first noun or at the first phrase that could
-theoretically be purchased.
-
-First ask whether the head is already a concrete shopping category.
-
-If the head is broad/under-specified and the following phrase identifies the
-concrete category being requested, the phrase completes PRODUCT.
-
-    חטיף
-    -> broad umbrella category
-
-    חטיף לכלבים
-    -> לכלבים identifies which concrete category of snack is being requested
-    -> PRODUCT = חטיף לכלבים
-
-But if the head already identifies the concrete shopping object and the following
-phrase only specifies destination, use, audience, or another property, keep it as
-ATTRIBUTE.
-
-    מפיץ ריח
-    -> already a concrete shopping object
-
-    מפיץ ריח לבית
-    -> לבית specifies destination/use
-    -> PRODUCT = מפיץ ריח
-    -> לבית = סוג
-
-The question is not "does the longer phrase sound like a retail product?"
-The question is "does the modifier complete an under-specified category, or
-describe an already identified object?"
-
-4. CARRIERS MUST DISAPPEAR
---------------------------
-Words such as בטעם, בניחוח, בריח, and similar grammatical carriers introduce
-a semantic value; they are not themselves the value.
-
-First identify the complete value, then remove the carrier.
-
-    בטעם בקר -> בקר
-    בניחוח וניל -> וניל
-
-Never leave a pure carrier as unclassified merely because the surrounding
-construction was difficult to resolve.
-
-5. REQUIRED DECISION ORDER
---------------------------
-For every difficult construction, perform these operations in order:
-
-A. Identify the real-world shopping referent.
-B. Resolve category completion vs attribute.
-C. Resolve the grammatical/semantic relation of each remaining modifier.
-D. Resolve generic-descriptor redundancy.
-E. Identify the complete semantic value.
-F. Assign ontology to that value.
-G. Remove carriers.
-H. Emit only the resulting source-faithful segments.
-
-Do not reverse this order by assigning ontology from individual words first.
-
-6. FINAL CONTRADICTION CHECK
-----------------------------
-Before output, verify:
-- A generic descriptor was not emitted when a later explicit value supplies the
-  same dimension.
-- A component introduced by "עם" was not called טעם merely because it is edible.
-- A broad umbrella product was not frozen before its category was completed.
-- A concrete product was not unnecessarily expanded by a destination/use phrase.
-- A carrier was not emitted as unclassified.
-"""
-
 SYSTEM_PROMPT = f"""
 You are Baskit's expert semantic parser for Hebrew supermarket product titles.
 
 Think like a human shopper/category expert, not like a keyword classifier.
 Your examples are teaching contrasts: learn the underlying distinction and apply it
 to products you have never seen.
-
-{IDENTITY_CONTRACT}
-
-{SEMANTIC_REASONING_CALIBRATION}
 
 ROLE DEFINITIONS:
 - brand: explicit commercial/manufacturer/retail brand. Preserve the exact source
@@ -1059,6 +974,11 @@ ROLE DEFINITIONS:
   ontology below.
 {ONTOLOGY}
 
+
+
+{IDENTITY_CONTRACT}
+
+{SEMANTIC_REASONING_CALIBRATION}
 
 FINAL ERROR-CALIBRATION — APPLY THESE GENERAL SEMANTIC DISTINCTIONS
 -------------------------------------------------------------------
@@ -1249,25 +1169,38 @@ own segment when the representation already contains the explicit scent value.
 
 Prefer the semantically informative value over a redundant generic descriptor.
 
-I. SEMANTIC CARRIERS MUST DISAPPEAR — NOT BECOME UNCLASSIFIED
---------------------------------------------------------------
-A carrier is grammatical scaffolding that introduces a semantic value but has no
-independent value in the representation.
+I. SEMANTIC CARRIERS ARE STRUCTURAL WRAPPERS — REMOVE BEFORE SEGMENTATION
+---------------------------------------------------------------------------
+A semantic carrier introduces a following value but contributes no independent
+shopping information. Therefore it is NOT a segment at all.
+
+Treat the construction as:
+
+    [carrier + semantic value]
+              ↓
+    [semantic value only]
 
 Examples:
 
-    בטעם עוף -> עוף
-    בטעם בקר -> בקר
-    בניחוח וניל -> וניל
-    בריח לימון -> לימון
-    עם טחינה -> טחינה
+    בטעם עוף      -> עוף / טעם
+    בטעם בקר      -> בקר / טעם
+    בניחוח וניל   -> וניל / ריח
+    בריח לימון    -> לימון / ריח
+    עם טחינה      -> טחינה / contextual kind
 
-The carrier itself MUST NOT be output as:
-- attribute
-- unclassified
-- part of the value
+CRITICAL:
+Do not first create a segment for the carrier and then try to classify or remove it.
+Identify the carrier+value construction first, discard the carrier, and create a
+segment only for the semantic value.
 
-Remove only the carrier. Preserve the actual semantic value.
+The carrier MUST NEVER appear in the final segments:
+- not as attribute
+- not as unclassified
+- not inside the value text
+
+This is a structural rule, not a lexical exception. Any unseen word that functions
+only as grammatical scaffolding must be handled the same way. Conversely, do not
+remove a word that contributes independent semantic information.
 
 J. EXACT SOURCE FORM STILL APPLIES
 ----------------------------------
@@ -2193,228 +2126,6 @@ correct behavior, including:
 - contextual ontology such as קפה טורקי עם הל, נר ריחני לבנדר,
   and percentage expressions.
 """
-
-V44_CALIBRATION = r'''
-V44 ACTIVE ERROR-GROUP CALIBRATION — HIGHEST PRIORITY
-=====================================================
-
-The following are GENERAL semantic distinctions extracted from recurring errors.
-They are not lexical rules, dictionaries, product-name exceptions, or benchmark
-patches. Apply the underlying reasoning to unseen products and vocabulary.
-These rules take precedence over earlier weaker heuristics when they conflict.
-
-1. PACKAGED LINEAR AMOUNT vs PHYSICAL DIMENSION
------------------------------------------------
-Do not classify every NUMBER + מטר as מידה.
-First determine what the measurement describes.
-
-- If the measurement describes the physical dimensions of the object itself,
-  it is מידה.
-  Example: 30×20 ס"מ for a baking pan -> מידה.
-
-- If the measurement describes how much continuous material is supplied in the
-  package (for example a roll/sheet/film/foil sold by total length), it is the
-  product's supplied amount and therefore כמות.
-  Example pattern: נייר/סרט/יריעה + 20 מטר -> the package contains 20 meters;
-  the number is not describing the dimensions of one object.
-
-The key question is:
-"Is this measurement describing the item's physical size, or the amount of
-material supplied in the package?"
-
-Do not decide from the unit "מטר" alone.
-
-2. QUANTITY + UNIT/COUNT NOUN IS ONE SEMANTIC UNIT
---------------------------------------------------
-A number together with the unit/count noun that completes its meaning is ONE
-attribute segment.
-
-Examples:
-  20 שקיקים -> ONE attribute / מספר יחידות
-  25 שקיקים -> ONE attribute / מספר יחידות
-  30 יחידות -> ONE attribute / מספר יחידות
-  500 גרם -> ONE attribute / כמות
-  1 ליטר -> ONE attribute / כמות
-
-Never split the number from the noun that completes the same quantity value.
-First identify the complete semantic unit; only then assign its kind.
-This applies equally when the same pattern appears in a new unseen unit.
-
-3. MULTI-WORD VALUES MUST REMAIN ATOMIC
----------------------------------------
-When multiple adjacent source words jointly answer ONE attribute question, they
-form ONE semantic value and MUST remain one segment.
-
-For example:
-  אגוזי לוז -> ONE ATTRIBUTE / טעם
-
-Do not split a compound value merely because each word can independently be
-classified. The ontology belongs to the complete value, not to each token.
-
-This applies to compound flavors, scents, materials, types, audiences, sizes,
-and other multi-word semantic values.
-
-4. INGREDIENT/FOOD NOUN AFTER A FOOD PRODUCT DOES NOT AUTOMATICALLY EXPAND PRODUCT
----------------------------------------------------------------------------------
-A noun modifier after a food product can express an ingredient/flavor/property
-rather than product identity.
-
-Before expanding PRODUCT, ask:
-"If I replace this modifier with another plausible food ingredient/value, am I
-still buying the same base product?"
-
-If YES, the modifier is normally an ATTRIBUTE of that product rather than part
-of PRODUCT.
-
-Example reasoning:
-  עוגיות חמאה
-  -> עוגיות already identifies the product category.
-  -> חמאה specifies an ingredient/flavor variant of the cookies.
-  -> PRODUCT = עוגיות
-  -> חמאה = טעם
-
-Do not let noun+noun adjacency or natural retail wording turn a flavor/ingredient
-modifier into PRODUCT. Conversely, if the modifier is genuinely required to
-identify a distinct concrete product category, the category-completion test still
-wins. This is a semantic test, not a word list.
-
-5. "עם X" MUST BE RESOLVED BY RELATION BEFORE ONTOLOGY
-------------------------------------------------------
-"עם" is a grammatical carrier and is omitted, but X must still be classified
-from the relation it expresses.
-
-If "עם X" describes an included component/addition/configuration that distinguishes
-what is in the product, X = סוג.
-If the construction explicitly presents X as the sensory flavor, X = טעם.
-
-Example:
-  קפה טורקי עם הל
-  -> קפה = PRODUCT
-  -> טורקי = סוג
-  -> הל = סוג, because הל is presented as an included component/configuration
-  -> עם = OMIT
-
-Contrast:
-  קפה בטעם הל
-  -> הל = טעם
-  -> בטעם = OMIT
-
-Never infer טעם merely because X is edible, aromatic, or can be tasted.
-
-6. NOTEBOOK/PRODUCT FORMAT WORD vs GEOMETRIC SHAPE
---------------------------------------------------
-Ontology must follow what the modifier describes in the complete construction.
-
-When "ספירלה" describes a notebook's binding/format/construction, it is:
-  ספירלה -> סוג
-
-It is NOT צורה merely because "ספירלה" can describe a geometric shape in another
-context.
-
-Use צורה only when the modifier describes the geometric form/shape of the object
-itself. Contextual relation determines the ontology.
-
-7. ADJUNCT NOUNS THAT DESCRIBE USE/CONTENTS/SETTING DO NOT AUTOMATICALLY BELONG TO PRODUCT
-----------------------------------------------------------------------------------------
-For noun+noun or noun+purpose constructions, first determine whether the second
-noun completes the concrete product category or merely specifies what the already
-identified object is for/contains/relates to.
-
-Example:
-  קנקן מים
-  -> קנקן already identifies the concrete shopping object.
-  -> מים specifies the intended contents/use/type of the pitcher.
-  -> PRODUCT = קנקן
-  -> מים = סוג
-
-Do not expand PRODUCT just because the combined phrase is a familiar retail
-expression. The stable shopping object is the boundary.
-
-8. CATEGORY COMPLETION vs ATTRIBUTE FOR NOUN+NOUN CONSTRUCTIONS
------------------------------------------------------------------
-Do NOT use a blanket rule that the second noun is either always PRODUCT or always
-ATTRIBUTE. Decide whether it completes the concrete shopping category.
-
-The key test is:
-"If I replace the modifier with another plausible value, am I still asking for
-the same concrete shopping object, or have I changed the product category?"
-
-- If replacement keeps the same concrete shopping object and only changes its
-  contents, intended use, property, or variant, the modifier is ATTRIBUTE.
-  Example:
-    קנקן מים
-    -> קנקן is already the shopping object.
-    -> מים identifies intended contents/type of that pitcher.
-    -> PRODUCT = קנקן
-    -> מים = סוג
-
-- If replacement changes which concrete product category is being requested,
-  the modifier completes PRODUCT.
-  Example:
-    וילון אמבטיה
-    -> "וילון" is a broad category.
-    -> "אמבטיה" identifies the concrete bathroom-curtain category.
-    -> PRODUCT = וילון אמבטיה
-
-Contrast:
-    קנקן מים -> PRODUCT קנקן + מים = סוג
-    וילון אמבטיה -> PRODUCT וילון אמבטיה
-
-Therefore, "use/setting" is NOT automatically an ATTRIBUTE and commercial
-familiarity is NOT automatically PRODUCT. The deciding factor is whether the
-modifier completes a distinct stable shopping category.
-
-9. MULTI-WORD SEMANTIC VALUES MUST BE EMITTED AS ONE CONTIGUOUS SEGMENT
-----------------------------------------------------------------------
-When adjacent source words jointly form one semantic value, segmentation must
-preserve the complete value as one exact contiguous source span.
-
-For example:
-  אגוזי לוז -> ONE ATTRIBUTE / טעם
-  20 שקיקים -> ONE ATTRIBUTE / מספר יחידות
-
-Do not assign the ontology independently to each token and then emit multiple
-segments. First identify the semantic value as a whole, then assign its role and
-kind.
-
-This is an output-segmentation requirement, not merely a preference. If the
-words jointly answer one attribute question, they MUST be emitted together.
-
-10. PRESERVE PREVIOUSLY CORRECT SEMANTIC BEHAVIOR
-------------------------------------------------
-These fixes must be applied as groups while preserving already-established
-behavior:
-
-- 60% in "שוקולד מריר 60%" remains סוג, not אחוז שומן.
-- "ריחני" remains a meaningful סוג descriptor when explicitly represented;
-  do not remove it merely because a later scent value exists.
-- "משקה תפוזים" remains one PRODUCT.
-- "חטיף לכלבים" remains one PRODUCT because לכלבים completes the product category.
-- "מפיץ ריח לבית" remains PRODUCT מפיץ ריח with לבית as סוג.
-- "קנקן" + a material remains the same product boundary principle.
-- Multi-word quantities and values remain atomic.
-
-Do not solve any one error by introducing a word-specific exception that would
-change these already-correct distinctions.
-
-FINAL V44 ARBITRATION
----------------------
-Before JSON emission, for every failure-prone construction ask:
-
-A. What concrete shopping object is already identified?
-B. Does the next phrase complete that category, or select a property/use/value?
-C. If it is a measurement, is it object dimension or packaged amount?
-D. If multiple words answer one question, did I keep them as one semantic unit?
-E. If a noun follows a food product, does it change product category or select an
-   ingredient/flavor/property of the same product?
-F. For "עם X", what relation does X express before assigning ontology?
-G. Does a word describe geometric shape, or product format/construction?
-H. Am I preserving all previously correct behavior?
-
-Only after these questions are resolved should ontology be assigned.
-'''
-
-
 BOUNDARY_JUDGE_SYSTEM_PROMPT = f"""
 You are Baskit's semantic product-boundary judge.
 
@@ -2436,499 +2147,7 @@ benchmark-specific rules.
 
 Return the requested JSON only.
 """
-
 JUDGE_SYSTEM_PROMPT = BOUNDARY_JUDGE_SYSTEM_PROMPT
-
-
-
-
-"""
-ERROR-FAMILY CALIBRATION — 30 CASES, GROUPED BY SEMANTIC PHENOMENON
-=================================================================
-
-The following examples are NOT hard-coded lexical rules. They are contrastive
-calibration cases showing reusable semantic phenomena. Transfer the reasoning
-to unseen vocabulary.
-
-GROUP 1 — STABLE PRODUCT + CONFIGURATION ATTRIBUTE
---------------------------------------------------
-When the head already identifies the stable shopping object, DO NOT absorb a
-following variety/form/state/flavor/material/use/destination word into PRODUCT.
-
-    טונה בשמן
-      PRODUCT: טונה
-      ATTRIBUTE: בשמן / סוג
-
-    קפה נמס קלאסי
-      PRODUCT: קפה
-      ATTRIBUTE: נמס / סוג
-      ATTRIBUTE: קלאסי / סוג
-
-    תה ירוק
-      PRODUCT: תה
-      ATTRIBUTE: ירוק / סוג
-
-    תה צמחים קמומיל
-      PRODUCT: תה
-      ATTRIBUTE: צמחים / סוג
-      ATTRIBUTE: קמומיל / טעם
-
-    שוקולד מריר 60%
-      PRODUCT: שוקולד
-      ATTRIBUTE: מריר / טעם
-      ATTRIBUTE: 60% / סוג
-
-    ופלה אגוזי לוז
-      PRODUCT: ופלה
-      ATTRIBUTE: אגוזי לוז / טעם
-
-    עוגיות שוקולד
-      PRODUCT: עוגיות
-      ATTRIBUTE: שוקולד / טעם
-
-    עוגיות חמאה
-      PRODUCT: עוגיות
-      ATTRIBUTE: חמאה / טעם
-
-    קפה טורקי עם הל
-      PRODUCT: קפה
-      ATTRIBUTE: טורקי / סוג
-      ATTRIBUTE: הל / סוג
-
-    מעדן שוקולד
-      PRODUCT: מעדן
-      ATTRIBUTE: שוקולד / טעם
-
-    דבק סטיק
-      PRODUCT: דבק
-      ATTRIBUTE: סטיק / סוג
-
-    עט כדורי
-      PRODUCT: עט
-      ATTRIBUTE: כדורי / סוג
-
-    קנקן מים
-      PRODUCT: קנקן
-      ATTRIBUTE: מים / סוג
-
-    מחברת שורות
-      PRODUCT: מחברת
-      ATTRIBUTE: שורות / סוג
-
-    מחק לבן
-      PRODUCT: מחק
-      ATTRIBUTE: לבן / צבע
-
-CRITICAL: "the phrase sounds like a product name" is NOT evidence that the
-whole phrase is PRODUCT. The question is whether the head already names the
-stable thing being purchased.
-
-GROUP 2 — CATEGORY-COMPLETING PRODUCT COMPOUNDS
-------------------------------------------------
-Not every modifier is an attribute. If the head is an umbrella/incomplete
-category and the following word completes WHICH CATEGORY OF THING is being
-bought, keep it inside PRODUCT.
-
-    סבון גוף       -> PRODUCT סבון גוף
-    מגבונים לחים   -> PRODUCT מגבונים לחים
-    שניצל תירס     -> PRODUCT שניצל תירס
-    נקניק סלמי     -> PRODUCT נקניק סלמי
-    סלט חצילים     -> PRODUCT סלט חצילים
-    משקה תפוזים    -> PRODUCT משקה תפוזים
-    משקה מוגז      -> PRODUCT משקה מוגז
-
-This is a category-completion decision, not a "more specific = product"
-decision.
-
-GROUP 3 — MULTI-WORD ATTRIBUTE VALUES MUST STAY ONE SEGMENT
--------------------------------------------------------------
-If several adjacent words jointly express ONE attribute value, preserve them
-as one contiguous source span. Do not split the value into separate
-attributes merely because it contains multiple tokens.
-
-    אגוזי לוז       -> ONE attribute / טעם
-    לשיער מתולתל    -> ONE attribute / סוג
-    ללא בישום       -> ONE attribute / סוג
-    רול און          -> ONE attribute / סוג
-    מידה 4           -> ONE attribute / מידה
-    52 יחידות        -> ONE attribute / מספר יחידות
-    500 גרם          -> ONE attribute / כמות
-    250 מ"ל          -> ONE attribute / כמות
-
-The semantic unit test is:
-"Do these words jointly answer ONE shopping question with ONE value?"
-If yes, keep them together.
-
-GROUP 4 — ATTRIBUTE CHAINS: DO NOT MERGE ADJACENT ATTRIBUTES
--------------------------------------------------------------
-Once PRODUCT is fixed, independently classify each remaining semantic
-dimension. Different dimensions remain separate even when adjacent.
-
-    פיצה קפואה משפחתית
-      PRODUCT: פיצה
-      קפואה: סוג
-      משפחתית: גודל
-
-    מחברת ספירלה כחולה A4
-      PRODUCT: מחברת
-      ספירלה: סוג
-      כחולה: צבע
-      A4: מידה
-
-    מחברת שורות ירוקה A5
-      PRODUCT: מחברת
-      שורות: סוג
-      ירוקה: צבע
-      A5: מידה
-
-    טושים צבעוניים דקים
-      PRODUCT: טושים
-      צבעוניים: צבע
-      דקים: גודל
-
-    נר ריחני לבנדר סגול
-      PRODUCT: נר
-      לבנדר: ריח
-      סגול: צבע
-
-Do not invent an attribute for a generic descriptive word when a later word
-provides the actual value. "ריחני" here does not mean the scent value; the
-actual scent is "לבנדר".
-
-GROUP 5 — ATTRIBUTE ONTOLOGY: CLASSIFY THE MEANING, NOT THE WORD'S APPEARANCE
--------------------------------------------------------------------------------
-After PRODUCT boundaries are fixed, classify the semantic dimension correctly.
-
-    להלבנה       -> סוג
-    בשמן         -> סוג
-    טורקי        -> סוג
-    סטיק         -> סוג
-    ספירלה       -> סוג
-    שורות        -> סוג
-    משפחתית      -> גודל
-    עץ           -> חומר
-    פלסטיק       -> חומר
-    קרמיקה       -> חומר
-    זכוכית       -> חומר
-    HB            -> סוג
-    צבעוניים     -> צבע
-    לבן/לבנה     -> צבע when visual appearance
-    כחול/כחולה   -> צבע
-    ירוק/ירוקה   -> צבע
-    סגול          -> צבע
-    שקוף/שקופה   -> צבע (visual appearance)
-    דקים          -> גודל
-    קטן/קטנה      -> גודל
-    30 ס"מ        -> מידה
-    20 ס"מ        -> מידה
-    A4 / A5       -> מידה
-    2 ליטר        -> כמות
-    200 גרם       -> כמות
-    1.5 ק"ג       -> כמות
-    10 יחידות     -> מספר יחידות
-
-"להלבנה" is a functional/product-type specification, not a taste.
-"ספירלה" and "שורות" describe notebook format/type, not shape.
-"עץ", "פלסטיק", "קרמיקה", "זכוכית" are materials, not generic type.
-"שקוף/שקופה" describes visual appearance/color, not shape.
-A physical length such as 30 ס"מ is a measurement/מידה, not quantity.
-
-GROUP 6 — SOURCE FORM AND MORPHOLOGY
--------------------------------------
-The output text MUST be an exact contiguous substring of the input.
-
-    גלידת וניל -> PRODUCT text is "גלידת", not "גלידה"
-
-Do not normalize, stem, lemmatize, translate, or rewrite the source text.
-Semantic normalization may affect the KIND, never the emitted TEXT.
-
-GROUP 7 — SEMANTIC CARRIERS: RETURN THE VALUE, OMIT THE CARRIER
-----------------------------------------------------------------
-A carrier introduces the actual semantic value. The carrier itself is not the
-attribute value when it contributes no independent shopping information.
-
-    בטעם עוף
-      -> ATTRIBUTE text "עוף", kind טעם
-      NOT "בטעם עוף"
-
-    בטעם בקר
-      -> ATTRIBUTE text "בקר", kind טעם
-      NOT separate attributes "בטעם" + "בקר"
-
-    בניחוח וניל
-      -> ATTRIBUTE text "וניל", kind ריח
-
-    בריח לימון
-      -> ATTRIBUTE text "לימון", kind ריח
-
-    עם טחינה
-      -> ATTRIBUTE text "טחינה", kind סוג
-
-Generalize this to unseen relational constructions: identify the smallest
-meaningful source span that carries the actual value, while omitting purely
-grammatical scaffolding.
-
-GROUP 8 — PRODUCT BOUNDARY MUST BE DECIDED BEFORE ONTOLOGY
-------------------------------------------------------------
-Do NOT let an attribute kind such as טעם, צבע, סוג, חומר, or גודל decide the
-PRODUCT boundary.
-
-Correct order:
-    1. Identify the stable shopping object.
-    2. Freeze PRODUCT.
-    3. Identify every remaining semantic value.
-    4. Assign each value its ontology KIND.
-    5. Remove carriers and preserve multi-word values.
-    6. Preserve exact source spans and source order.
-
-For example, in "עוגיות שוקולד", first decide PRODUCT=עוגיות. Only then
-classify שוקולד as טעם. Do not reason backwards that "שוקולד is a taste,
-therefore עוגיות שוקולד is one product".
-
-GROUP 9 — "SOUNDS LIKE A SKU" IS NOT A VALID HEURISTIC
--------------------------------------------------------
-Retail titles, brand catalogs, common phrases, and SKU naming conventions may
-make a phrase look like one product name. That does not override semantic
-segmentation.
-
-    קפה נמס       -> קפה + נמס
-    תה ירוק       -> תה + ירוק
-    עוגיות שוקולד -> עוגיות + שוקולד
-    מעדן שוקולד   -> מעדן + שוקולד
-    דבק סטיק      -> דבק + סטיק
-    עט כדורי      -> עט + כדורי
-    קנקן מים      -> קנקן + מים
-
-The same principle must transfer to unseen words.
-
-GROUP 10 — PRODUCT IS FROZEN ONCE THE STABLE OBJECT IS IDENTIFIED
-------------------------------------------------------------------
-Do not keep expanding PRODUCT as you scan rightward.
-
-Once PRODUCT is identified, later words normally become attributes unless a
-genuine new category-completion relationship is established.
-
-    כף עץ למטבח 30 ס"מ
-      PRODUCT: כף
-      עץ: חומר
-      למטבח: סוג
-      30 ס"מ: מידה
-
-    מפיץ ריח לבית בניחוח וניל 120 מ"ל
-      PRODUCT: מפיץ ריח
-      לבית: סוג
-      וניל: ריח
-      120 מ"ל: כמות
-
-    קופסת אחסון פלסטיק שקופה 2 ליטר
-      PRODUCT: קופסת אחסון
-      פלסטיק: חומר
-      שקופה: צבע
-      2 ליטר: כמות
-
-Do not absorb "לבית" into PRODUCT merely because "מפיץ ריח לבית" sounds like
-a commercial phrase. The stable object is already "מפיץ ריח"; "לבית" specifies
-use/destination.
-
-FINAL CROSS-CHECK
------------------
-Before emitting JSON, verify ALL of these independently:
-- Did PRODUCT stop at the stable shopping object?
-- Did I accidentally merge a configuration/variety/value into PRODUCT?
-- Did I accidentally split one multi-word semantic value?
-- Did I merge two different attribute dimensions?
-- Did I classify the attribute by semantic meaning rather than surface form?
-- Did I omit grammatical carriers while preserving the actual value?
-- Is every TEXT an exact contiguous source substring?
-- Did I preserve every meaningful quantity/unit and unit-count expression?
-- Is source order preserved?
-"""
-
-SEMANTIC_REASONING_CALIBRATION_V30 = r"""
-ADDITIONAL SEMANTIC CALIBRATION — FOUR DISTINCT FAILURE PATTERNS
-
-1. ATTRIBUTE CHAINING — DO NOT RE-ABSORB AN ATTRIBUTE INTO PRODUCT
-After PRODUCT is established, evaluate later modifiers one by one. If a modifier is an ATTRIBUTE, a later modifier does not make it part of PRODUCT merely because the combined phrase sounds like a familiar retail expression. Multiple attributes may follow one product. Preserve the earliest valid PRODUCT boundary.
-
-2. RETAIL-PHRASE FAMILIARITY IS NOT PRODUCT IDENTITY
-A phrase can be common on supermarket shelves, labels, catalogs, or SKUs and still be PRODUCT + ATTRIBUTE. Commercial familiarity, lexical frequency, or naturalness of the complete phrase is not evidence that the modifier belongs in PRODUCT. Apply the stable-object replacement test before using phrase familiarity.
-
-3. SEMANTIC UNIT BEFORE ONTOLOGY — KEEP ONE VALUE TOGETHER
-Segmentation and ontology are separate decisions. First determine whether adjacent words jointly form one semantic value; then assign one ontology kind to that whole value. If several consecutive words jointly answer one dimension question, preserve them as one attribute segment. Do not split a multi-word value merely because its individual words are meaningful.
-
-4. CONTEXTUAL ONTOLOGY — CLASSIFY THE RELATION, NOT THE WORD IN ISOLATION
-Ontology depends on the value's role in the local product context. A word is not permanently associated with one kind. Ask what dimension the value specifies for this product request. A value associated with food flavor can function as TYPE when the construction uses it to define preparation, form, or configuration rather than sensory flavor. Do not infer ontology from dictionary meaning alone.
-
-5. REQUIRED ORDER OF OPERATIONS
-A. Identify stable shopping object / PRODUCT boundary.
-B. Preserve that boundary; do not reopen it because later words form a familiar phrase.
-C. Partition remaining text into semantic units.
-D. Determine the dimension represented by each unit.
-E. Assign ontology from the contextual relationship.
-F. Preserve exact source spans and order.
-
-Never let ontology classification decide PRODUCT boundary retroactively. Never let phrase familiarity override semantic structure. Never split a semantic value merely because it has multiple words. Never merge an established product with a later attribute merely because the combined phrase sounds commercially natural.
-"""
-
-V34_SEMANTIC_ERROR_CALIBRATION = r"""
-V34 SEMANTIC ERROR-CALIBRATION — RELATION, COMPLETENESS, AND REDUNDANCY
-=======================================================================
-
-These are reasoning procedures, not lexical rules. Transfer the reasoning to
-unseen vocabulary.
-
-The recent failures share one root problem: the parser sometimes jumps from a
-word's familiar meaning directly to an output label. Do NOT do that.
-
-Required order:
-    1. identify the local grammatical/semantic relation
-    2. determine what information the modifier contributes
-    3. decide whether it completes PRODUCT or describes PRODUCT
-    4. only then choose the attribute kind
-
-Never choose ontology from the isolated word.
-
-A. "WITH X" — RELATION FIRST, ONTOLOGY SECOND
----------------------------------------------
-The value X does not determine its own kind.
-
-Ask:
-    "What does this construction say X IS doing to the product?"
-
-If X is explicitly presented as the sensory flavor:
-    -> X = טעם
-
-If X is presented as an included ingredient/component/configuration:
-    -> X = סוג (or another structural kind)
-
-Do NOT reason:
-    edible noun -> can be tasted -> טעם.
-
-Instead:
-    relation -> semantic role -> ontology.
-
-Contrastive principle:
-    Explicit flavor relation: X answers "what flavor?" -> טעם.
-    With/inclusion relation: X answers "what is included in the formulation
-    or configuration?" -> סוג.
-
-Example:
-    קפה טורקי עם הל
-    "עם הל" presents הל as an included component/configuration.
-    Therefore:
-      קפה = PRODUCT
-      טורקי = סוג
-      הל = סוג
-
-The transferable lesson is NOT "הל is סוג". The same noun can be טעם or סוג
-in different constructions. The construction determines the dimension.
-
-B. GENERIC PROPERTY VS EXPLICIT VALUE — REMOVE REDUNDANCY
-----------------------------------------------------------
-A generic property announcement and a concrete value of that same property are
-not automatically two attributes.
-
-Ask:
-    "Does this word merely announce that the dimension exists, while a later
-     word gives the actual value?"
-
-If yes:
-    keep the explicit value;
-    omit the generic announcement.
-
-Example:
-    נר ריחני לבנדר סגול
-
-"נר ריחני" can by itself communicate a generic scented formulation.
-But once "לבנדר" explicitly identifies the scent, "ריחני" adds no independent
-semantic information.
-
-Therefore:
-    נר = PRODUCT
-    ריחני = redundant generic scent-property -> OMIT
-    לבנדר = ריח
-    סגול = צבע
-    200 גרם = כמות
-
-Do not emit "ריחני" as סוג merely because it is classifiable in isolation.
-
-General rule:
-    generic dimension announcement + later explicit value of same dimension
-    -> explicit value survives; generic announcement is omitted.
-
-C. PRODUCT BOUNDARY — CATEGORY COMPLETION VS USE/DESTINATION
--------------------------------------------------------------
-Do not use retail phrase familiarity or grammatical shape as the boundary test.
-
-Ask two questions:
-
-Q1. Is the head already a sufficiently concrete shopping category?
-
-Q2. If the modifier is removed, does the head still identify that concrete
-    shopping category, or is it only a broad umbrella?
-
-If the head is already concrete and the modifier merely tells where/for what
-setting/use it is intended:
-    -> PRODUCT stops before the modifier.
-
-If the head is broad/under-specified and the modifier identifies the concrete
-category being requested:
-    -> the modifier completes PRODUCT.
-
-Contrast:
-
-    מפיץ ריח לבית
-    "מפיץ ריח" already identifies the concrete shopping object.
-    "לבית" specifies destination/setting.
-    -> PRODUCT = מפיץ ריח
-    -> לבית = סוג
-
-    חטיף לכלבים
-    "חטיף" alone is a broad umbrella.
-    "לכלבים" identifies the concrete animal-snack category.
-    -> PRODUCT = חטיף לכלבים
-
-The distinction is HEAD COMPLETENESS, not the grammatical form "ל..." and not
-whether the combined phrase sounds like a SKU.
-
-D. CARRIERS — NEVER ALLOW A PURE CARRIER TO SURVIVE
-----------------------------------------------------
-A carrier introduces a semantic value but has no independent semantic value in
-the representation.
-
-Procedure:
-    1. identify the value introduced by the carrier
-    2. classify the value
-    3. omit the carrier
-
-Example:
-    בטעם בקר
-    -> בקר = טעם
-    -> בטעם = OMIT
-
-A pure carrier must never become "unclassified". If the ontology of the value
-is uncertain, resolve the VALUE's relation; that uncertainty does not make the
-carrier itself a segment.
-
-E. FINAL CONFLICT CHECK
------------------------
-Before emitting JSON:
-
-1. RELATION — What relation does each modifier have to the head?
-2. PRODUCT COMPLETENESS — Is the head complete, or does the modifier complete
-   an under-specified category?
-3. REDUNDANCY — Is a generic descriptor made unnecessary by a later explicit
-   value of the same dimension?
-4. ONTOLOGY — Only now choose טעם / סוג / ריח / צבע / etc.
-5. CARRIERS — Remove pure grammatical carriers; never output them as
-   unclassified.
-6. SOURCE — Every emitted text must be an exact contiguous source substring.
-
-Do not use "unclassified" as a fallback for a carrier or unresolved relation.
-Resolve the semantic relation first.
-"""
-
-
 PARSE_INSTRUCTION = f"""
 
 CURRENT REPRESENTATION POLICY:
@@ -3676,7 +2895,6 @@ semantic contribution.
 This policy overrides earlier generic-descriptor omission/entailment heuristics.
 
 """
-
 REPAIR_PROMPT = f"""
 
 Before repairing any boundary, remember:
@@ -3743,7 +2961,6 @@ common silent failure.
 
 Return ONLY the corrected JSON object.
 """
-
 VERIFY_PROMPT = f"""
 
 CURRENT REPRESENTATION POLICY:
